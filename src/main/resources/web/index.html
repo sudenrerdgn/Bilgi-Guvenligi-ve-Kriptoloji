@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Güvenli Haberleşme · Kriptoloji</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="eyebrow">KRİPTOLOJİ LABORATUVARI / 2026–2027</p><h1 id="title">Güvenli Haberleşme</h1><p id="subtitle">Bağlantı bilgileri yükleniyor…</p></div>
+      <span class="badge">Güvensiz mod · Açık metin</span>
+    </header>
+    <div class="layout">
+      <aside>
+        <section class="card" id="client-panel" hidden>
+          <h2>Bağlantı</h2>
+          <p class="hint">Haberleşme sunucusunun adresini ve kullanıcı adını gir.</p>
+          <form id="connect-form">
+            <fieldset id="connection-fields">
+              <label for="name">Kullanıcı adı</label><input id="name" name="name" maxlength="40" placeholder="Örn. Sude" required autocomplete="nickname">
+              <label for="host">Sunucu IP adresi</label><input id="host" name="host" value="127.0.0.1" required spellcheck="false">
+              <label for="port">Haberleşme portu</label><input id="port" name="port" type="number" value="5000" min="1" max="65535" required>
+              <button type="submit">Sunucuya bağlan <span aria-hidden="true">↗</span></button>
+            </fieldset>
+          </form>
+          <button id="disconnect" class="secondary" type="button" hidden>Bağlantıyı kes</button>
+        </section>
+        <section class="card" id="server-panel" hidden>
+          <h2>Bağlı istemciler <span id="client-count" class="count">0 / 2</span></h2>
+          <ul id="clients"></ul>
+          <p class="hint" id="server-info"></p>
+        </section>
+        <section class="card flow">
+          <p class="eyebrow">İLETİŞİM AKIŞI</p>
+          <p>İstemci A <span>↔</span> Sunucu <span>↔</span> İstemci B</p>
+          <p class="hint">Her mesaj sunucu üzerinden iletilir.</p>
+        </section>
+        <section class="note"><strong>İlk adım: metin iletişimi</strong><p>PDF aktarımı ve güvenli mod sonraki adımlarda eklenecek.</p></section>
+      </aside>
+      <section class="card conversation">
+        <div class="conversation-header"><h2 id="history-title">Mesajlar</h2><span id="status" class="status">Yükleniyor</span></div>
+        <div id="error" role="alert" hidden></div>
+        <div id="history" role="log" aria-label="Mesaj ve işlem geçmişi" aria-live="polite"><p class="empty">Henüz bir kayıt yok.</p></div>
+        <form id="message-form" hidden>
+          <label for="message">Mesajın</label>
+          <div class="composer"><textarea id="message" name="text" maxlength="4000" rows="3" placeholder="Bir mesaj yaz…" required></textarea><button id="send" type="submit">Gönder ↗</button></div>
+          <p class="hint">En fazla 4000 karakter. Mesaj göndermek için Gönder düğmesini kullan.</p>
+        </form>
+      </section>
+    </div>
+    <footer>Sude · Ece · Zeynep <span>Bilgi Güvenliği ve Kriptoloji</span></footer>
+  </main>
+</body>
+</html>
