@@ -6,6 +6,13 @@ Her uygulama kendi bilgisayarında çalışır; arayüzü o bilgisayarın taray�
 **Mevcut aşama:** Sunucu üzerinden güvensiz modda metin iletişimi. PDF aktarımı,
 AES, anahtar paylaşımı ve performans ölçümleri henüz uygulanmadı.
 
+## Görev Dağılımı:
+| Üye | Ana sorumluluk | Raporda anlatacağı bölüm |
+|---|---|---|
+| Sudenur Erdoğan | Java sunucusu, bağlantıları yönetme, mesaj ve PDF yönlendirme, sunucu ekranı | Sistem mimarisi ve sunucunun çalışma akışı |
+| Ece Naz Genç| RSA, DH, ECDH, ML-KEM ile anahtar paylaşımı; AES ile şifreleme/çözme | Güvenli mod ve anahtar dağıtım yöntemleri |
+| Zeynep Yılmaz| İstemci web arayüzü, mesaj geçmişi, dosya seçimi, aktarım durumu ve ölçüm sonuçlarının gösterimi | İstemci kullanımı ve karşılaştırma sonuçları |
+
 ## Gereksinimler
 
 - Windows, VS Code ve JDK 21 veya üzeri (`java` ve `javac` komutları erişilebilir olmalı).
@@ -124,3 +131,5 @@ loopback yakalama arabirimi gerekir. Henüz `.pcapng` kaydı üretilmedi.
 
 - [Java HTTP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.httpserver/com/sun/net/httpserver/HttpServer.html)
 - [Java TCP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html)
+
+
