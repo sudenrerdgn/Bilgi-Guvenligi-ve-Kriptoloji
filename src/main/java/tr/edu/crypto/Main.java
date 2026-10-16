@@ -1,5 +1,7 @@
 package tr.edu.crypto;
 
+import java.nio.file.Path;
+
 public final class Main {
     public static void main(String[] args) {
         try {
@@ -10,7 +12,7 @@ public final class Main {
             if (args[0].equals("server") && args.length == 3) {
                 RelayServer relay = new RelayServer(parsePort(args[2]));
                 WebUi ui;
-                try { ui = new WebUi(webPort, relay::state, null); }
+                try { ui = new WebUi(webPort, relay::state, null, relay.files()); }
                 catch (Exception exception) { relay.close(); throw exception; }
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     ui.close();
@@ -18,7 +20,7 @@ public final class Main {
                 }));
                 System.out.println("Sunucu: http://127.0.0.1:" + ui.port() + " | TCP: " + relay.port());
             } else if (args[0].equals("client") && args.length == 2) {
-                ChatClient client = new ChatClient();
+                ChatClient client = new ChatClient(Path.of("runtime", "client-" + webPort));
                 WebUi ui = new WebUi(webPort, client::state, client);
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     ui.close();

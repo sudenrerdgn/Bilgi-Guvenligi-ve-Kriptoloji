@@ -8,7 +8,11 @@ public final class Protocol {
 
     private Protocol() {}
 
-    public record Frame(String type, String sender, String text) {}
+    public record Frame(String type, String sender, String text, byte[] data) {
+        public Frame(String type, String sender, String text) {
+            this(type, sender, text, new byte[0]);
+        }
+    }
 
     // TCP mesaj sinirlarini korumaz; her cercevenin basina uzunlugunu ekleriz.
     public static void write(OutputStream output, Frame frame) throws IOException {
@@ -19,6 +23,8 @@ public final class Protocol {
             payload.writeInt(bytes.length);
             payload.write(bytes);
         }
+        // PDF baytlarini metne veya Base64'e cevirmeden oldugu gibi tasiriz.
+        payload.write(frame.data());
         if (buffer.size() > MAX_FRAME_BYTES) throw new IOException("Mesaj boyutu sınırı aşıldı.");
         // Ayni sokete yazan iki is parcaciginin verileri birbirine karismamalidir.
         synchronized (output) {
@@ -42,8 +48,7 @@ public final class Protocol {
             if (length < 0 || length > payload.available()) throw new IOException("Geçersiz alan boyutu.");
             fields[index] = new String(payload.readNBytes(length), StandardCharsets.UTF_8);
         }
-        if (payload.available() != 0) throw new IOException("Beklenmeyen ek veri.");
-        return new Frame(fields[0], fields[1], fields[2]);
+        return new Frame(fields[0], fields[1], fields[2], payload.readAllBytes());
     }
 
     public static void validateName(String name) {

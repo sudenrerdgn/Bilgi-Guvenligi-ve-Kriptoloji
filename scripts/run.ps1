@@ -15,5 +15,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $classes 'tr/edu/crypto/Main.class')
 }
 $appArguments = @($Role, "$WebPort")
 if ($Role -eq 'server') { $appArguments += "$TcpPort" }
-& java -cp $classes tr.edu.crypto.Main @appArguments
+# Kayit klasorlerini komutun cagrildigi yerden bagimsiz olarak proje altinda tutariz.
+Push-Location -LiteralPath $projectRoot
+try { & java -cp $classes tr.edu.crypto.Main @appArguments }
+finally { Pop-Location }
 if ($LASTEXITCODE -ne 0) { throw 'Uygulama baslatilamadi veya hata ile kapandi.' }

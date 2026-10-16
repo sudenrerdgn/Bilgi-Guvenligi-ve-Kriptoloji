@@ -3,8 +3,12 @@
 Java sunucusu ve iki Java istemcisinden oluşan, Türkçe web arayüzlü ders projesi.
 Her uygulama kendi bilgisayarında çalışır; arayüzü o bilgisayarın tarayıcısında açılır.
 
-**Mevcut aşama:** Sunucu üzerinden güvensiz modda metin iletişimi. PDF aktarımı,
-AES, anahtar paylaşımı ve performans ölçümleri henüz uygulanmadı.
+**Mevcut aşama:** Sunucu üzerinden güvensiz modda metin ve parçalı PDF aktarımı.
+PDF sunucuda ve alıcıda kaydedilir; alıcı kayıt onayı gönderir. AES, anahtar
+paylaşımı ve performans ölçümleri henüz uygulanmadı.
+
+**Sıradaki deney:** [İki bilgisayarda Wireshark kaydı](docs/WIRESHARK.md).
+Gerçek `.pcapng` dosyaları alındıktan sonra `captures/insecure/` klasörüne eklenecek.
 
 ## Görev Dağılımı:
 | Üye | Ana sorumluluk | Raporda anlatacağı bölüm |
@@ -100,13 +104,15 @@ Tarayıcı A -> Yerel Java istemcisi A --TCP--> Java sunucusu <--TCP-- Yerel Jav
 - `Protocol.java`: UTF-8 mesajları uzunluk bilgisiyle TCP üzerinden taşır.
 - `WebUi.java`: Yerel web ekranını ve HTTP API'yi sunar.
 - `History.java`: Son 300 kaydı bellekte tutar.
+- `FileStore.java`: PDF parçalarını kaydeder, tamamlanmış dosyaları indirmeye sunar.
 - `src/main/resources/web/`: HTML, CSS ve JavaScript arayüzü.
 - `src/test/java/`: Gerçek TCP/HTTP bağlantılarıyla entegrasyon testi.
 - `docs/PLAN.md`: Kararlar, görevler ve ilerleme planı.
 
 TCP akışında her çerçeve önce 4 bayt toplam yük uzunluğu, ardından `type`, `sender`,
 `text` alanlarını içerir. Her alan 4 bayt UTF-8 bayt uzunluğu ve metin baytlarından
-oluşur. Uzunluklar big-endian biçimindedir. Çerçeve en fazla 65.536 bayttır.
+oluşur. Kalan baytlar isteğe bağlı ham `data` alanıdır. Uzunluklar big-endian
+biçimindedir. Çerçeve yükü en fazla 65.536 bayttır.
 `HELLO → READY` bağlantıyı kurar; `CHAT → MESSAGE / SENT` mesajı yönlendirir.
 `ERROR` ile hatalar bildirilir. `SENT`, sunucunun alıcı soketine yazabildiğini
 gösterir; alıcı uygulamanın okuma/teslim onayı değildir.
@@ -115,7 +121,42 @@ Mesaj başına en fazla 4000 Java karakteri kabul edilir. Geçmiş yalnızca bel
 uygulama kapanınca silinir. Arayüz durumu 800 ms aralıklarla sorgulanır.
 Bu arayüz sorgulama süresi ileride kriptografik performans ölçümüne dahil edilmeyecek.
 
+## PDF gönderme ve indirme
+
+1. Sunucu ve iki istemciyi güncel kodla yeniden derleyip başlatın.
+2. İki istemciyi de sunucuya bağlayın.
+3. **PDF gönder** bölümünden en fazla **10 MB** bir PDF seçin ve gönderin.
+4. İlerleme çubuğu sunucuya gönderilen baytları gösterir. **Alıcıya teslim edildi**
+   mesajını bekleyin; yüzde 100 tek başına alıcının kaydettiği anlamına gelmez.
+5. Alıcının **Alınan PDF dosyaları** bölümünden **İndir** düğmesini kullanın.
+   Sunucu ekranından da sunucuda saklanan kopyayı indirebilirsiniz.
+
+`samples/wireshark-test.pdf`, Wireshark'ta okunabilir metin içeren sıkıştırılmamış
+örnek dosyadır. `scripts/create-sample-pdf.ps1` ile yeniden üretilebilir.
+
+Dosyalar 32 KiB parçalarla `FILE_START → FILE_CHUNK → FILE_END` akışıyla taşınır.
+Dosya çerçevelerinde `sender` alanı aktarım UUID'sidir. `FILE_START.text`, boyut,
+satır sonu ve dosya adından oluşur; `data` alanı gönderen adını içerir. Sunucu
+gönderen adını bağlantı kaydından alır. `FILE_CHUNK.data` ham PDF baytlarıdır.
+Sunucu tamamını kaydettikten sonra alıcıya aynı akışla iletir. Alıcı dosyayı kaydedip
+`FILE_ACK` gönderir; sunucu bu onayı göndericiye iletir. Teslim hatası `FILE_ERROR`
+ile bildirilir. Sunucu 30 saniye, gönderen istemci 35 saniye teslim onayı bekler.
+
+- Sunucu dosyaları: `runtime/server/`
+- İstemci dosyaları: `runtime/client-8081/`, `runtime/client-8082/`
+- Diskte dosya adı UUID'dir; indirmede özgün dosya adı kullanılır.
+- Aynı adlı dosyalar birbirinin üzerine yazılmaz. Kesilen bağlantının `.part`
+  dosyası temizlenir; uygulama zorla sonlandırılırsa artık `.part` dosyası kalabilir.
+- Uzantı, boyut ve `%PDF-` başlığı kontrol edilir; tam PDF biçimi doğrulaması yapılmaz.
+- Tamamlanan PDF'ler diskte kalır. Dosya listesi bellektedir; uygulama yeniden
+  başladığında eski dosyalar ekranda listelenmez, diskten erişilebilir.
+- Alıcı bağlı değilse dosya sunucuda kalır ve gönderene teslim hatası gösterilir;
+  alıcı bağlanınca otomatik gönderim yapılmaz.
+- `runtime/` Git'e eklenmez. Gerçek Wireshark kayıtları `captures/insecure/` altında tutulur.
+
 ## Wireshark için ilk kontrol
+
+Tam deney, dosya adları ve Git adımları için [Wireshark rehberini](docs/WIRESHARK.md) izleyin.
 
 Her iki bilgisayarda iletişimin geçtiği ağ arabirimini seçin. Görüntüleme filtresi:
 

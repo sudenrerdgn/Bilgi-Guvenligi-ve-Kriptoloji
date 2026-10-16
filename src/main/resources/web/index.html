@@ -38,7 +38,22 @@
           <p>İstemci A <span>↔</span> Sunucu <span>↔</span> İstemci B</p>
           <p class="hint">Her mesaj sunucu üzerinden iletilir.</p>
         </section>
-        <section class="note"><strong>İlk adım: metin iletişimi</strong><p>PDF aktarımı ve güvenli mod sonraki adımlarda eklenecek.</p></section>
+        <section class="card" id="pdf-panel" hidden>
+          <h2>PDF gönder</h2>
+          <form id="file-form">
+            <label for="pdf">PDF dosyası · En fazla 10 MB</label>
+            <input id="pdf" type="file" accept=".pdf,application/pdf" required>
+            <button id="send-file" type="submit">PDF gönder ↗</button>
+          </form>
+          <progress id="file-progress" max="100" value="0" aria-label="Sunucuya aktarım ilerlemesi"></progress>
+          <p id="file-status" class="hint" role="status">Bir PDF seçerek başlayın.</p>
+        </section>
+        <section class="card">
+          <h2>Alınan PDF dosyaları</h2>
+          <div id="files"><p class="hint">Henüz dosya alınmadı.</p></div>
+          <p id="storage" class="hint"></p>
+        </section>
+        <section class="note"><strong>Güvensiz mod: metin ve PDF</strong><p>İçerik şifrelenmeden aktarılır. Güvenli mod sonraki adımda eklenecek.</p></section>
       </aside>
       <section class="card conversation">
         <div class="conversation-header"><h2 id="history-title">Mesajlar</h2><span id="status" class="status">Yükleniyor</span></div>

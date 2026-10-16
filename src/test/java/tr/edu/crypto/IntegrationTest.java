@@ -81,7 +81,11 @@ public final class IntegrationTest {
                 return super.read(bytes, offset, Math.min(length, 1));
             }
         };
-        check(Protocol.read(fragmented).equals(frame) && Protocol.read(fragmented).equals(frame),
+        Protocol.Frame first = Protocol.read(fragmented);
+        Protocol.Frame second = Protocol.read(fragmented);
+        check(first.type().equals(frame.type()) && first.sender().equals(frame.sender())
+                        && first.text().equals(frame.text()) && first.data().length == 0
+                        && second.text().equals(frame.text()) && second.data().length == 0,
                 "Bolunmus ve ardisik TCP cerceveleri okunuyor");
         expectFailure(() -> Protocol.read(new ByteArrayInputStream(new byte[]{127, 127, 127, 127})),
                 "Asiri buyuk cerceve reddediliyor");

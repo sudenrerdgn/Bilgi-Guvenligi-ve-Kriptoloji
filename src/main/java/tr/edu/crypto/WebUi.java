@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -15,10 +16,16 @@ public final class WebUi implements AutoCloseable {
     private final ExecutorService workers = Executors.newFixedThreadPool(4);
     private final Supplier<Map<String, Object>> state;
     private final ChatClient client;
+    private final FileStore files;
 
     public WebUi(int port, Supplier<Map<String, Object>> state, ChatClient client) throws IOException {
+        this(port, state, client, client == null ? null : client.files());
+    }
+
+    public WebUi(int port, Supplier<Map<String, Object>> state, ChatClient client, FileStore files) throws IOException {
         this.state = state;
         this.client = client;
+        this.files = files;
         // Tarayici arayuzu yalnizca uygulamanin calistigi bilgisayardan acilir.
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         server.createContext("/", this::handle);
@@ -39,6 +46,19 @@ public final class WebUi implements AutoCloseable {
             String method = exchange.getRequestMethod();
             if (method.equals("GET") && path.equals("/api/state")) {
                 respond(exchange, 200, "application/json", json(state.get()));
+            } else if (method.equals("GET") && path.startsWith("/api/files/") && files != null) {
+                FileStore.StoredFile file = files.find(path.substring("/api/files/".length()));
+                if (file == null) {
+                    respond(exchange, 404, "application/json", "{\"error\":\"Dosya bulunamadı.\"}");
+                    return;
+                }
+                exchange.getResponseHeaders().set("Content-Type", "application/pdf");
+                exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=download.pdf; filename*=UTF-8''"
+                        + URLEncoder.encode(file.name(), StandardCharsets.UTF_8).replace("+", "%20"));
+                exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+                exchange.getResponseHeaders().set("Cache-Control", "no-store");
+                exchange.sendResponseHeaders(200, file.size());
+                Files.copy(file.path(), exchange.getResponseBody());
             } else if (method.equals("GET") && Set.of("/", "/app.js", "/style.css").contains(path)) {
                 String resource = path.equals("/") ? "index.html" : path.substring(1);
                 try (InputStream input = getClass().getResourceAsStream("/web/" + resource)) {
@@ -47,10 +67,18 @@ public final class WebUi implements AutoCloseable {
                     respond(exchange, 200, mime, new String(input.readAllBytes(), StandardCharsets.UTF_8));
                 }
             } else if (method.equals("POST") && client != null &&
-                    Set.of("/api/connect", "/api/send", "/api/disconnect").contains(path)) {
+                    Set.of("/api/connect", "/api/send", "/api/disconnect", "/api/file").contains(path)) {
                 String origin = exchange.getRequestHeaders().getFirst("Origin");
                 if (origin != null && !origin.equals("http://" + host)) {
                     respond(exchange, 403, "application/json", json(Map.of("error", "İstek kaynağı reddedildi.")));
+                    return;
+                }
+                if (path.equals("/api/file")) {
+                    String filename = parseForm(Objects.toString(exchange.getRequestURI().getRawQuery(), ""))
+                            .getOrDefault("name", "");
+                    byte[] pdf = exchange.getRequestBody().readNBytes(FileStore.MAX_BYTES + 1);
+                    client.sendFile(filename, pdf);
+                    respond(exchange, 200, "application/json", "{\"ok\":true}");
                     return;
                 }
                 byte[] bytes = exchange.getRequestBody().readNBytes(65_537);

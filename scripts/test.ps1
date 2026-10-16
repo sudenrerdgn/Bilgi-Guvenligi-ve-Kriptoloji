@@ -11,3 +11,5 @@ $mainSources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src/main/ja
 if ($LASTEXITCODE -ne 0) { throw 'Test derlemesi basarisiz.' }
 & java -cp "$classes;$testClasses" tr.edu.crypto.IntegrationTest
 if ($LASTEXITCODE -ne 0) { throw 'Testler basarisiz.' }
+& java -cp "$classes;$testClasses" tr.edu.crypto.FileTransferTest
+if ($LASTEXITCODE -ne 0) { throw 'PDF testleri basarisiz.' }

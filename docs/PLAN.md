@@ -9,7 +9,7 @@
 - Türkçe arayüz; Türkçe ancak Türkçe karakter içermeyen kod yorumları.
 - İngilizce sınıf, değişken ve fonksiyon isimleri.
 - Orta seviyede, sunumda açıklanabilir bir yapı; geliştirme adım adım yapılır.
-- PDF sunucuda otomatik kaydedilir, istemcide İndir düğmesiyle alınır (planlandı).
+- PDF sunucuda otomatik kaydedilir, istemcide İndir düğmesiyle alınır.
 
 ## Görev dağılımı
 
@@ -40,7 +40,9 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
 - [x] Sunucu üzerinden güvensiz metin iletimi
 - [x] İki istemci sınırı, bağlantı durumu ve bellekte mesaj geçmişi
 - [ ] Kullanıcının iki bilgisayarda ilk denemesi
-- [ ] PDF aktarımı, sunucuda kayıt, istemcide indirme ve ilerleme
+- [x] PDF aktarımı, sunucuda kayıt, istemcide indirme ve ilerleme
+- [x] Alıcıda kayıt onayı ve PDF aktarımının otomatik testleri
+- [x] Sıkıştırılmamış örnek PDF ve Wireshark kayıt rehberi
 - [ ] AES-128 ile güvenli mod
 - [ ] RSA-2048, DH-2048, ECDH ve ML-KEM-768
 - [ ] Manuel AES ve aynı girdide kütüphane karşılaştırması
@@ -55,3 +57,10 @@ ECDH eğrisi; ortak sırdan AES-128 anahtarı türetme yöntemi; ML-KEM kütüph
 manuel AES'in haberleşmede kullanımı; zaman ve bayt ölçümlerinin kesin sınırları.
 Güvenli mod istemci–sunucu bağlantıları içindir: sunucu içeriği çözer ve hedef
 istemcinin anahtarıyla yeniden şifreler. Uçtan uca şifreleme olarak sunulmaz.
+
+## Hocanın geri bildirimi
+
+Güvensiz moddaki metin/PDF aktarımı tamamlanınca, güvenli moda başlamadan önce
+iki bilgisayarda ilk Wireshark kaydı alınacak. `.pcapng` dosyaları
+`captures/insecure/` klasörüne eklenecek. Yönergeler `docs/WIRESHARK.md` içinde.
+Henüz iki fiziksel bilgisayarda deney yapılmadı ve `.pcapng` kaydı oluşturulmadı.
