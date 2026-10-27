@@ -17,15 +17,25 @@ public final class WebUi implements AutoCloseable {
     private final Supplier<Map<String, Object>> state;
     private final ChatClient client;
     private final FileStore files;
+    private final RelayServer relay;
 
     public WebUi(int port, Supplier<Map<String, Object>> state, ChatClient client) throws IOException {
         this(port, state, client, client == null ? null : client.files());
     }
 
     public WebUi(int port, Supplier<Map<String, Object>> state, ChatClient client, FileStore files) throws IOException {
+        this(port, state, client, files, null);
+    }
+
+    public WebUi(int port, RelayServer relay) throws IOException {
+        this(port, relay::state, null, relay.files(), relay);
+    }
+
+    private WebUi(int port, Supplier<Map<String, Object>> state, ChatClient client, FileStore files, RelayServer relay) throws IOException {
         this.state = state;
         this.client = client;
         this.files = files;
+        this.relay = relay;
         // Tarayici arayuzu yalnizca uygulamanin calistigi bilgisayardan acilir.
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         server.createContext("/", this::handle);
@@ -46,6 +56,9 @@ public final class WebUi implements AutoCloseable {
             String method = exchange.getRequestMethod();
             if (method.equals("GET") && path.equals("/api/state")) {
                 respond(exchange, 200, "application/json", json(state.get()));
+            } else if (method.equals("GET") && path.equals("/api/measurements.csv") && client != null) {
+                exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=anahtar-olcumleri.csv");
+                respond(exchange, 200, "text/csv", client.measurementsCsv());
             } else if (method.equals("GET") && path.startsWith("/api/files/") && files != null) {
                 FileStore.StoredFile file = files.find(path.substring("/api/files/".length()));
                 if (file == null) {
@@ -66,8 +79,9 @@ public final class WebUi implements AutoCloseable {
                     String mime = path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : "text/html";
                     respond(exchange, 200, mime, new String(input.readAllBytes(), StandardCharsets.UTF_8));
                 }
-            } else if (method.equals("POST") && client != null &&
-                    Set.of("/api/connect", "/api/send", "/api/disconnect", "/api/file").contains(path)) {
+            } else if (method.equals("POST") && ((client != null &&
+                    Set.of("/api/connect", "/api/send", "/api/disconnect", "/api/file", "/api/benchmark").contains(path))
+                    || (relay != null && path.equals("/api/mode")))) {
                 String origin = exchange.getRequestHeaders().getFirst("Origin");
                 if (origin != null && !origin.equals("http://" + host)) {
                     respond(exchange, 403, "application/json", json(Map.of("error", "İstek kaynağı reddedildi.")));
@@ -86,9 +100,14 @@ public final class WebUi implements AutoCloseable {
                 Map<String, String> form = parseForm(new String(bytes, StandardCharsets.UTF_8));
                 switch (path) {
                     case "/api/connect" -> client.connect(form.getOrDefault("host", ""),
-                            Integer.parseInt(form.getOrDefault("port", "5000")), form.getOrDefault("name", ""));
+                            Integer.parseInt(form.getOrDefault("port", "5000")), form.getOrDefault("name", ""),
+                            form.getOrDefault("mode", "insecure"), form.getOrDefault("method", "RSA"), form.getOrDefault("fingerprint", ""));
                     case "/api/send" -> client.sendMessage(form.getOrDefault("text", ""));
                     case "/api/disconnect" -> client.close();
+                    case "/api/mode" -> relay.setMode(form.getOrDefault("mode", ""));
+                    case "/api/benchmark" -> client.benchmark(form.getOrDefault("host", ""),
+                            Integer.parseInt(form.getOrDefault("port", "5000")), form.getOrDefault("method", "RSA"),
+                            form.getOrDefault("fingerprint", ""));
                     default -> throw new IllegalArgumentException("Geçersiz işlem.");
                 }
                 respond(exchange, 200, "application/json", "{\"ok\":true}");

@@ -3,12 +3,15 @@
 Java sunucusu ve iki Java istemcisinden oluşan, Türkçe web arayüzlü ders projesi.
 Her uygulama kendi bilgisayarında çalışır; arayüzü o bilgisayarın tarayıcısında açılır.
 
-**Mevcut aşama:** Sunucu üzerinden güvensiz modda metin ve parçalı PDF aktarımı.
-PDF sunucuda ve alıcıda kaydedilir; alıcı kayıt onayı gönderir. AES, anahtar
-paylaşımı ve performans ölçümleri henüz uygulanmadı.
+**Mevcut aşama:** Sunucuda güvenli/güvensiz mod geçişi; AES-128-GCM ile güvenli
+metin aktarımı; RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768 anahtar paylaşımı.
+İstemci ekranında her yöntem için 10 gerçek bağlantı ölçümü, ortalamalar ve CSV
+indirme bulunur. PDF aktarımı şimdilik yalnızca güvensiz modda çalışır.
 
-**Sıradaki deney:** [İki bilgisayarda Wireshark kaydı](docs/WIRESHARK.md).
-Gerçek `.pcapng` dosyaları alındıktan sonra `captures/insecure/` klasörüne eklenecek.
+**Başlangıç:** [Güvenli modu birlikte çalıştırma rehberi](docs/SECURE_MODE.md).
+Güvensiz `.pcapng` dosyaları `captures/insecure/` altında bulunuyor; içeriklerinin
+doğrulanması ve deney bilgilerinin doldurulması gerekiyor. Güvenli modun iki
+bilgisayarda Wireshark deneyi henüz yapılmadı.
 
 ## Görev Dağılımı:
 | Üye | Ana sorumluluk | Raporda anlatacağı bölüm |
@@ -19,8 +22,8 @@ Gerçek `.pcapng` dosyaları alındıktan sonra `captures/insecure/` klasörüne
 
 ## Gereksinimler
 
-- Windows, VS Code ve JDK 21 veya üzeri (`java` ve `javac` komutları erişilebilir olmalı).
-- İlk aşamada Maven, Gradle veya harici Java kütüphanesi gerekmiyor.
+- Windows, VS Code ve **JDK 25 veya üzeri** (`java` ve `javac` aynı güncel JDK'ya ait olmalı).
+- ML-KEM dahil Java'nın yerleşik kriptografi API'leri kullanılır; Maven, Gradle veya harici Java kütüphanesi gerekmez.
 - İki bilgisayarla deney için aynı yerel ağ ve sunucunun TCP 5000 portuna erişim.
 
 ## Derleme ve test
@@ -43,6 +46,11 @@ Bu kullanım kalıcı yürütme politikasını değiştirmez. Aynı biçim `run.
 derleyin ve başlatın. Çalışan uygulama `Ctrl+C` ile durdurulur.
 
 ## Tek bilgisayarda ilk deneme
+
+Sunucu her başlatıldığında **güvensiz modda** açılır. Aşağıdaki ilk denemeden sonra
+sunucu ekranındaki **Güvenli moda geç** düğmesini kullanın. Mevcut istemciler ayrılır;
+iki istemcide de Güvenli mod seçip yöntem ve sunucu parmak izi ile yeniden bağlanın.
+Parmak izi her sunucu başlangıcında yenilenir. Ayrıntılar: [Güvenli mod](docs/SECURE_MODE.md).
 
 Derledikten sonra VS Code içinde **üç ayrı terminalde** şu komutları çalıştırın:
 
@@ -105,11 +113,15 @@ Tarayıcı A -> Yerel Java istemcisi A --TCP--> Java sunucusu <--TCP-- Yerel Jav
 - `WebUi.java`: Yerel web ekranını ve HTTP API'yi sunar.
 - `History.java`: Son 300 kaydı bellekte tutar.
 - `FileStore.java`: PDF parçalarını kaydeder, tamamlanmış dosyaları indirmeye sunar.
+- `Crypto.java`: Sabit kriptografi parametreleri, anahtar üretimi, HKDF ve kimlik imzası.
+- `KeyExchange.java`: Dört yöntemin anahtar paylaşımı, sunucu kimliği ve anahtar doğrulaması.
+- `SecureChannel.java`: AES-GCM ile çerçeve şifreleme, bütünlük ve sıra denetimi.
+- `Measurements.java`: Tamamlanan 10 tekrarlık deneylerin ortalamaları ve ham CSV sonuçları.
 - `src/main/resources/web/`: HTML, CSS ve JavaScript arayüzü.
 - `src/test/java/`: Gerçek TCP/HTTP bağlantılarıyla entegrasyon testi.
 - `docs/PLAN.md`: Kararlar, görevler ve ilerleme planı.
 
-TCP akışında her çerçeve önce 4 bayt toplam yük uzunluğu, ardından `type`, `sender`,
+Güvensiz TCP akışında her çerçeve önce 4 bayt toplam yük uzunluğu, ardından `type`, `sender`,
 `text` alanlarını içerir. Her alan 4 bayt UTF-8 bayt uzunluğu ve metin baytlarından
 oluşur. Kalan baytlar isteğe bağlı ham `data` alanıdır. Uzunluklar big-endian
 biçimindedir. Çerçeve yükü en fazla 65.536 bayttır.
@@ -120,10 +132,13 @@ gösterir; alıcı uygulamanın okuma/teslim onayı değildir.
 Mesaj başına en fazla 4000 Java karakteri kabul edilir. Geçmiş yalnızca bellektedir;
 uygulama kapanınca silinir. Arayüz durumu 800 ms aralıklarla sorgulanır.
 Bu arayüz sorgulama süresi ileride kriptografik performans ölçümüne dahil edilmeyecek.
+Güvenli modda bu çerçeve AES-GCM ile şifrelenip `SECURE` zarfında taşınır.
+Tarayıcı sorgulama süresi mevcut ölçümlere dahil değildir.
 
 ## PDF gönderme ve indirme
 
 1. Sunucu ve iki istemciyi güncel kodla yeniden derleyip başlatın.
+   Sunucu ve istemciler **güvensiz modda** olmalıdır; güvenli PDF bu aşamada kapalıdır.
 2. İki istemciyi de sunucuya bağlayın.
 3. **PDF gönder** bölümünden en fazla **10 MB** bir PDF seçin ve gönderin.
 4. İlerleme çubuğu sunucuya gönderilen baytları gösterir. **Alıcıya teslim edildi**
@@ -166,7 +181,8 @@ tcp.port == 5000
 
 İki istemci bağlandıktan sonra ayırt edilebilir bir metin gönderin. İlgili pakette
 **Follow → TCP Stream** ile açık metni inceleyin. Tek bilgisayardaki denemelerde
-loopback yakalama arabirimi gerekir. Henüz `.pcapng` kaydı üretilmedi.
+loopback yakalama arabirimi gerekir. Repoda güvensiz mod kayıtları bulunur;
+güvenli mod için gerçek `.pcapng` kaydı henüz üretilmedi.
 
 ## Kaynaklar
 

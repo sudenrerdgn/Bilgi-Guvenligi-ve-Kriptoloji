@@ -2,7 +2,7 @@
 
 ## Kabul edilen kararlar
 
-- Java; Windows; VS Code; en az iki fiziksel bilgisayar.
+- Java 25+; Windows; VS Code; en az iki fiziksel bilgisayar.
 - Bir Java sunucusu ve iki Java istemcisi, her uygulama için yerel web arayüzü.
 - İstemciler doğrudan bağlanmaz; eşzamanlı mesajlaşma desteklenir.
 - Sunucu ekranı ayrı tarayıcı penceresinde açılır.
@@ -43,18 +43,27 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
 - [x] PDF aktarımı, sunucuda kayıt, istemcide indirme ve ilerleme
 - [x] Alıcıda kayıt onayı ve PDF aktarımının otomatik testleri
 - [x] Sıkıştırılmamış örnek PDF ve Wireshark kayıt rehberi
-- [ ] AES-128 ile güvenli mod
-- [ ] RSA-2048, DH-2048, ECDH ve ML-KEM-768
+- [x] Sunucu ekranında güvenli/güvensiz mod geçişi ve eski oturumların kapatılması
+- [x] AES-128-GCM ile güvenli metin aktarımı
+- [x] RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768
+- [ ] Güvenli PDF aktarımı (kullanıcının seçimiyle sonraki aşama)
 - [ ] Manuel AES ve aynı girdide kütüphane karşılaştırması
-- [ ] Her yöntem için 10 tekrar, ortalamalar ve boyut tablosu
+- [x] Her yöntem için 10 gerçek bağlantı ölçümü, ortalamalar, boyut tablosu ve CSV altyapısı
+- [ ] İki fiziksel bilgisayarda karşılaştırma deneyi ve rapora alınacak sonuçlar
 - [ ] Sunucu ve istemci tarafında Wireshark kayıtları
 - [ ] Rapor, README'nin son hali ve sunum
 
-## Kriptografi aşamasında netleştirilecekler
+## Güvenli metin aşamasında seçilen parametreler
 
-AES çalışma modu, IV/nonce ve doğrulama yaklaşımı; RSA padding; DH grubu;
-ECDH eğrisi; ortak sırdan AES-128 anahtarı türetme yöntemi; ML-KEM kütüphanesi;
-manuel AES'in haberleşmede kullanımı; zaman ve bayt ölçümlerinin kesin sınırları.
+- Java JCA/JCE AES-128-GCM; 96 bit nonce, 128 bit doğrulama etiketi.
+- RSA-2048 OAEP SHA-256 / MGF1-SHA256; DH RFC 3526 grup 14; ECDH secp256r1;
+  Java 25 yerleşik ML-KEM-768.
+- HKDF-SHA256 ile yönlere ayrı AES-128 anahtarları ve nonce ön ekleri.
+- Her sunucu başlangıcında Ed25519 kimliği; istemcide sunucu SHA-256 parmak izi kontrolü.
+- Güvenli modda PDF gönderimi hem ekranda hem Java tarafında kapalı.
+- Ölçüm sınırları ve çalışma adımları `docs/SECURE_MODE.md` içinde.
+- Manuel AES henüz uygulanmadı. Ağda şu aşamada Java AES kütüphanesi kullanılır;
+  manuel AES ve aynı girdide kütüphane karşılaştırması ayrı sonraki çalışmadır.
 Güvenli mod istemci–sunucu bağlantıları içindir: sunucu içeriği çözer ve hedef
 istemcinin anahtarıyla yeniden şifreler. Uçtan uca şifreleme olarak sunulmaz.
 
@@ -63,4 +72,6 @@ istemcinin anahtarıyla yeniden şifreler. Uçtan uca şifreleme olarak sunulmaz
 Güvensiz moddaki metin/PDF aktarımı tamamlanınca, güvenli moda başlamadan önce
 iki bilgisayarda ilk Wireshark kaydı alınacak. `.pcapng` dosyaları
 `captures/insecure/` klasörüne eklenecek. Yönergeler `docs/WIRESHARK.md` içinde.
-Henüz iki fiziksel bilgisayarda deney yapılmadı ve `.pcapng` kaydı oluşturulmadı.
+Repoya sunucu ve istemci için iki güvensiz `.pcapng` dosyası eklenmiş durumda.
+Kayıtların içeriği bu geliştirmede doğrulanmadı; deney bilgileri tablosu henüz boş.
+Güvenli modun iki fiziksel bilgisayarda deneyi ve gerçek kayıtları bekliyor.

@@ -11,7 +11,7 @@
   <main>
     <header>
       <div><p class="eyebrow">KRİPTOLOJİ LABORATUVARI / 2026–2027</p><h1 id="title">Güvenli Haberleşme</h1><p id="subtitle">Bağlantı bilgileri yükleniyor…</p></div>
-      <span class="badge">Güvensiz mod · Açık metin</span>
+      <span class="badge" id="mode-badge">Bağlantı bekleniyor</span>
     </header>
     <div class="layout">
       <aside>
@@ -23,6 +23,15 @@
               <label for="name">Kullanıcı adı</label><input id="name" name="name" maxlength="40" placeholder="Örn. Sude" required autocomplete="nickname">
               <label for="host">Sunucu IP adresi</label><input id="host" name="host" value="127.0.0.1" required spellcheck="false">
               <label for="port">Haberleşme portu</label><input id="port" name="port" type="number" value="5000" min="1" max="65535" required>
+              <label for="mode">Bağlantı modu</label>
+              <select id="mode" name="mode"><option value="insecure">Güvensiz</option><option value="secure">Güvenli · AES-128-GCM</option></select>
+              <div id="secure-options" hidden>
+                <label for="method">Anahtar paylaşım yöntemi</label>
+                <select id="method" name="method"><option value="RSA">RSA-2048</option><option value="DH">Diffie-Hellman · 2048 bit</option><option value="ECDH">ECC · ECDH P-256</option><option value="ML-KEM">Kyber · ML-KEM-768</option></select>
+                <label for="fingerprint">Sunucu parmak izi · SHA-256</label>
+                <input id="fingerprint" name="fingerprint" maxlength="95" spellcheck="false" autocomplete="off" placeholder="Sunucu ekranındaki değeri girin">
+                <p class="hint">Bu değeri sunucuyu çalıştıran arkadaşınızdan alın. Sunucu yeniden başlatıldığında değişir.</p>
+              </div>
               <button type="submit">Sunucuya bağlan <span aria-hidden="true">↗</span></button>
             </fieldset>
           </form>
@@ -32,6 +41,16 @@
           <h2>Bağlı istemciler <span id="client-count" class="count">0 / 2</span></h2>
           <ul id="clients"></ul>
           <p class="hint" id="server-info"></p>
+        </section>
+        <section class="card" id="server-security" hidden>
+          <h2>Haberleşme modu</h2>
+          <p id="server-mode" role="status">Güvensiz mod</p>
+          <button id="toggle-mode" type="button">Güvenli moda geç</button>
+          <p class="hint">Mod değişince tüm bağlantılar kapanır. İstemciler aynı modu seçerek yeniden bağlanmalıdır.</p>
+          <label for="server-fingerprint">Sunucu parmak izi · SHA-256</label>
+          <textarea id="server-fingerprint" rows="3" readonly aria-label="Sunucu parmak izi"></textarea>
+          <button id="copy-fingerprint" class="secondary" type="button">Parmak izini kopyala</button>
+          <p id="copy-status" class="hint" role="status"></p>
         </section>
         <section class="card flow">
           <p class="eyebrow">İLETİŞİM AKIŞI</p>
@@ -53,7 +72,7 @@
           <div id="files"><p class="hint">Henüz dosya alınmadı.</p></div>
           <p id="storage" class="hint"></p>
         </section>
-        <section class="note"><strong>Güvensiz mod: metin ve PDF</strong><p>İçerik şifrelenmeden aktarılır. Güvenli mod sonraki adımda eklenecek.</p></section>
+        <section class="note"><strong id="mode-note-title">Haberleşme modu</strong><p id="mode-note">Güvenli modda metinler istemci–sunucu arasında şifrelenir. Güvenli PDF aktarımı sonraki aşamadır.</p></section>
       </aside>
       <section class="card conversation">
         <div class="conversation-header"><h2 id="history-title">Mesajlar</h2><span id="status" class="status">Yükleniyor</span></div>
@@ -66,6 +85,19 @@
         </form>
       </section>
     </div>
+    <section class="card measurements" id="measurements-panel" hidden>
+      <h2>Anahtar paylaşımı karşılaştırması</h2>
+      <p id="last-measurement" class="hint">Henüz güvenli bağlantı kurulmadı.</p>
+      <button id="benchmark" type="button">Seçili yöntemle 10 ölçüm yap</button>
+      <p id="benchmark-status" role="status" class="hint">Ölçüm için bağlantınızı kesin; güvenli modu, yöntemi ve sunucu parmak izini seçin. Sunucu güvenli modda olmalıdır.</p>
+      <p class="hint">Süreler gerçek bağlantılardan alınır. Paylaşım süresi anahtar üretimi, doğrulama ve ağ beklemesini içerir. Baytlar uygulamanın anahtar paylaşım trafiğidir; TCP/IP başlıkları ve yeniden iletimler dahil değildir.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Yöntem</th><th>Tekrar</th><th>Sunucu anahtar üretimi (ms)</th><th>İstemci anahtar/ortak sır üretimi (ms)</th><th>Paylaşım (ms)</th><th>Anahtar yükü (bayt)</th><th>Toplam paylaşım trafiği (bayt)</th></tr></thead>
+        <tbody id="measurements"></tbody>
+      </table></div>
+      <p class="hint">Tablo son tamamlanan 10 tekrarlık deneyin ortalamasıdır. ML-KEM istemci sütunu kapsüllemeyi içerir. JVM ısınması ve ağ yükü süreleri etkiler; sonuçlar bu deney koşulları için geçerlidir.</p>
+      <a id="export-measurements" href="/api/measurements.csv" download="anahtar-olcumleri.csv">Ham ölçümleri CSV olarak indir</a>
+    </section>
     <footer>Sude · Ece · Zeynep <span>Bilgi Güvenliği ve Kriptoloji</span></footer>
   </main>
 </body>

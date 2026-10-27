@@ -3,6 +3,7 @@ package tr.edu.crypto;
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
+import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -15,12 +16,16 @@ public final class RelayServer implements AutoCloseable {
     private final FileStore files;
     private final Map<String, PendingFile> pendingFiles = new ConcurrentHashMap<>();
     private final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor();
+    private final KeyPair identity;
+    private final String fingerprint;
+    private boolean secureMode;
+    private long modeVersion;
     private record PendingFile(Peer sender, Peer recipient, FileStore.StoredFile file) {}
     public FileStore files() { return files; }
 
-    private record Peer(String name, Socket socket, OutputStream output) {
+    private record Peer(String name, Socket socket, OutputStream output, SecureChannel channel, String method) {
         void send(String type, String sender, String text) throws IOException {
-            Protocol.write(output, new Protocol.Frame(type, sender, text));
+            channel.write(new Protocol.Frame(type, sender, text));
         }
     }
 
@@ -30,6 +35,10 @@ public final class RelayServer implements AutoCloseable {
 
     public RelayServer(int port, Path directory) throws IOException {
         files = new FileStore(directory);
+        try {
+            identity = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
+            fingerprint = Crypto.fingerprint(identity.getPublic());
+        } catch (GeneralSecurityException exception) { throw new IOException("Sunucu kimliği üretilemedi.", exception); }
         listener = new ServerSocket(port);
         history.add("system", "Sunucu", "Sunucu bağlantıları bekliyor.");
         workers.submit(this::acceptConnections);
@@ -41,25 +50,44 @@ public final class RelayServer implements AutoCloseable {
         while (!listener.isClosed()) {
             try {
                 Socket socket = listener.accept();
-                sockets.add(socket);
-                workers.submit(() -> handleConnection(socket));
+                synchronized (peers) {
+                    if (sockets.size() >= 12) { socket.close(); continue; }
+                    sockets.add(socket);
+                    long version = modeVersion;
+                    workers.submit(() -> handleConnection(socket, version));
+                }
             } catch (IOException exception) {
                 if (!listener.isClosed()) history.add("error", "Sunucu", exception.getMessage());
             }
         }
     }
 
-    private void handleConnection(Socket socket) {
+    private void handleConnection(Socket socket, long version) {
         Peer peer = null;
         FileStore.Incoming incoming = null;
         try (socket) {
-            socket.setSoTimeout(5000);
-            Protocol.Frame hello = Protocol.read(socket.getInputStream());
-            if (!hello.type().equals("HELLO")) throw new IOException("İlk mesaj HELLO olmalı.");
+            socket.setSoTimeout(15000);
+            socket.setTcpNoDelay(true);
+            SecureChannel channel = new SecureChannel(socket.getInputStream(), socket.getOutputStream());
+            Protocol.Frame hello = channel.read();
+            boolean secure = hello.type().equals("SECURE_HELLO") || hello.type().equals("MEASURE_HELLO");
+            boolean measure = hello.type().equals("MEASURE_HELLO");
+            if (!hello.type().equals("HELLO") && !secure) throw new IOException("Geçersiz bağlantı başlangıcı.");
             String name = hello.sender().strip();
             Protocol.validateName(name);
-            Peer candidate = new Peer(name, socket, socket.getOutputStream());
             synchronized (peers) {
+                if (version != modeVersion) return;
+                if (secure != secureMode) {
+                    channel.write(new Protocol.Frame("ERROR", "Sunucu", "Sunucu " + (secureMode ? "güvenli" : "güvensiz")
+                            + " modda. İstemcide aynı modu seçin."));
+                    return;
+                }
+            }
+            if (secure) KeyExchange.server(channel, hello, identity);
+            Peer candidate = new Peer(name, socket, socket.getOutputStream(), channel, secure ? hello.text() : "");
+            synchronized (peers) {
+                if (version != modeVersion) return;
+                if (measure) { candidate.send("READY", "Sunucu", "Ölçüm tamamlandı."); return; }
                 if (peers.keySet().stream().anyMatch(existing -> existing.equalsIgnoreCase(name))) {
                     candidate.send("ERROR", "Sunucu", "Bu kullanıcı adı zaten bağlı.");
                     return;
@@ -73,9 +101,15 @@ public final class RelayServer implements AutoCloseable {
                 peer = candidate;
             }
             socket.setSoTimeout(0);
-            history.add("system", name, "İstemci bağlandı: " + socket.getInetAddress().getHostAddress());
+            history.add("system", name, "İstemci bağlandı: " + socket.getInetAddress().getHostAddress()
+                    + (secure ? " · AES-128-GCM / " + hello.text() : " · Güvensiz mod"));
             while (!socket.isClosed()) {
-                Protocol.Frame frame = Protocol.read(socket.getInputStream());
+                Protocol.Frame frame = channel.read();
+                synchronized (peers) { if (version != modeVersion) return; }
+                if (secure && frame.type().startsWith("FILE_")) {
+                    peer.send("ERROR", "Sunucu", "Güvenli modda PDF aktarımı henüz desteklenmiyor.");
+                    continue;
+                }
                 if (frame.type().equals("FILE_START")) {
                     if (incoming != null) throw new IOException("Önce mevcut PDF aktarımını tamamlayın.");
                     incoming = files.begin(frame, peer.name());
@@ -113,9 +147,11 @@ public final class RelayServer implements AutoCloseable {
                 }
             }
         } catch (IOException | IllegalArgumentException exception) {
-            if (!(exception instanceof EOFException) && !listener.isClosed()) {
-                history.add("error", peer == null ? "Bağlantı" : peer.name(),
-                        Objects.toString(exception.getMessage(), "Bağlantı hatası."));
+            synchronized (peers) {
+                if (!(exception instanceof EOFException) && !listener.isClosed() && version == modeVersion) {
+                    history.add("error", peer == null ? "Bağlantı" : peer.name(),
+                            Objects.toString(exception.getMessage(), "Bağlantı hatası."));
+                }
             }
         } finally {
             if (incoming != null) {
@@ -133,10 +169,15 @@ public final class RelayServer implements AutoCloseable {
     private void forwardFile(Peer sender, FileStore.StoredFile file) throws IOException {
         Peer recipient;
         synchronized (peers) {
+            if (peers.get(sender.name()) != sender) throw new IOException("Gönderen oturumu kapandı.");
             recipient = peers.values().stream().filter(peer -> peer != sender).findFirst().orElse(null);
         }
         if (recipient == null) {
             sender.send("FILE_ERROR", file.id(), "PDF sunucuda kayıtlı; diğer istemci bağlı olmadığı için iletilemedi.");
+            return;
+        }
+        if (recipient.channel().secure() || sender.channel().secure()) {
+            sender.send("FILE_ERROR", file.id(), "Güvenli modda PDF aktarımı henüz desteklenmiyor.");
             return;
         }
         PendingFile pending = new PendingFile(sender, recipient, file);
@@ -170,10 +211,15 @@ public final class RelayServer implements AutoCloseable {
     private void forwardMessage(Peer sender, String text) throws IOException {
         Peer recipient;
         synchronized (peers) {
+            if (peers.get(sender.name()) != sender) throw new IOException("Gönderen oturumu kapandı.");
             recipient = peers.values().stream().filter(peer -> peer != sender).findFirst().orElse(null);
         }
         if (recipient == null) {
             sender.send("ERROR", "Sunucu", "Diğer istemci bağlı değil; mesaj iletilemedi.");
+            return;
+        }
+        if (sender.channel().secure() != recipient.channel().secure()) {
+            sender.send("ERROR", "Sunucu", "Bağlantı modları farklı; yeniden bağlanın.");
             return;
         }
         try {
@@ -191,9 +237,30 @@ public final class RelayServer implements AutoCloseable {
 
     public Map<String, Object> state() {
         synchronized (peers) {
-            return Map.of("role", "server", "connected", true, "tcpPort", port(),
-                    "clients", List.copyOf(peers.keySet()), "history", history.snapshot(),
-                    "files", files.snapshot(), "storage", files.directory());
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("role", "server"); result.put("connected", true); result.put("tcpPort", port());
+            result.put("clients", List.copyOf(peers.keySet())); result.put("history", history.snapshot());
+            result.put("files", files.snapshot()); result.put("storage", files.directory());
+            result.put("mode", secureMode ? "secure" : "insecure"); result.put("fingerprint", fingerprint);
+            result.put("clientSecurity", peers.values().stream().map(peer -> Map.of("name", peer.name(), "method", peer.method())).toList());
+            return result;
+        }
+    }
+
+    public void setMode(String mode) throws IOException {
+        if (!Set.of("secure", "insecure").contains(mode)) throw new IllegalArgumentException("Geçersiz haberleşme modu.");
+        synchronized (peers) {
+            boolean next = mode.equals("secure");
+            if (next == secureMode) return;
+            secureMode = next;
+            modeVersion++;
+            // Eski oturumlar yeni modda kullanilamaz; devam eden anahtar paylasimlari da kapanir.
+            for (Socket socket : sockets) {
+                try { socket.close(); } catch (IOException ignored) { /* Diger oturumlari da kapat. */ }
+            }
+            peers.clear();
+            history.add("system", "Sunucu", (next ? "Güvenli" : "Güvensiz")
+                    + " moda geçildi. İstemciler yeniden bağlanmalı.");
         }
     }
 

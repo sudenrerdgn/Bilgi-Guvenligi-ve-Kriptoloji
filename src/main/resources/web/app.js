@@ -4,6 +4,8 @@ let historySignature = '';
 let busy = false;
 let filesSignature = '';
 let transferSignature = '';
+let measurementsSignature = '';
+const methodNames = { RSA: 'RSA-2048', DH: 'DH-2048', ECDH: 'ECDH P-256', 'ML-KEM': 'ML-KEM-768' };
 
 function showError(message) {
   element('error').textContent = message;
@@ -12,18 +14,68 @@ function showError(message) {
 
 function updateControls() {
   const connected = Boolean(currentState?.connected);
-  element('connection-fields').disabled = busy || connected;
+  const measuring = Boolean(currentState?.benchmark?.running);
+  const secure = connected && currentState?.mode === 'secure';
+  element('connection-fields').disabled = busy || connected || measuring;
   element('disconnect').hidden = !connected;
   element('disconnect').disabled = busy;
   element('message').disabled = !connected;
   element('send').disabled = busy || !connected;
-  element('pdf').disabled = busy || !connected;
-  element('send-file').disabled = busy || !connected;
+  element('pdf').disabled = busy || !connected || secure;
+  element('send-file').disabled = busy || !connected || secure;
+  element('toggle-mode').disabled = busy || !currentState;
+  element('benchmark').disabled = busy || connected || measuring || element('mode').value !== 'secure';
+}
+
+function modeSelectionChanged() {
+  const secure = element('mode').value === 'secure';
+  element('secure-options').hidden = !secure;
+  element('fingerprint').required = secure;
+  updateControls();
+}
+
+function renderSecurity(state) {
+  const server = state.role === 'server';
+  const secure = state.mode === 'secure';
+  element('server-security').hidden = !server;
+  element('measurements-panel').hidden = server;
+  element('mode-badge').textContent = !server && !state.connected ? 'Bağlı değil'
+    : secure ? 'Güvenli mod · AES-128-GCM' : 'Güvensiz mod · Açık metin';
+  element('mode-badge').classList.toggle('secure', secure && (server || state.connected));
+  element('mode-note-title').textContent = secure ? 'Güvenli mod: metin' : 'Güvensiz mod: metin ve PDF';
+  element('mode-note').textContent = secure
+    ? 'Metinler istemci–sunucu arasında şifrelenir. Sunucu içeriği çözüp alıcıya yeniden şifreler. Güvenli PDF aktarımı sonraki aşamadır.'
+    : 'Metin ve PDF içeriği şifrelenmeden aktarılır. Sunucu ve istemciler aynı modda olmalıdır.';
+  if (server) {
+    element('server-mode').textContent = secure ? 'Güvenli mod açık · Yalnızca şifreli metin' : 'Güvensiz mod açık · Metin ve PDF';
+    element('toggle-mode').textContent = secure ? 'Güvensiz moda geç' : 'Güvenli moda geç';
+    if (element('server-fingerprint').value !== state.fingerprint) element('server-fingerprint').value = state.fingerprint;
+    return;
+  }
+  const last = state.lastMeasurement;
+  element('last-measurement').textContent = last?.method
+    ? `Son bağlantı: ${methodNames[last.method]} · Paylaşım ${last.exchangeMs.toFixed(3)} ms · Toplam ${last.totalBytes} bayt`
+    : 'Henüz güvenli bağlantı kurulmadı.';
+  if (state.benchmark) element('benchmark-status').textContent = state.benchmark.status;
+  const signature = JSON.stringify(state.measurements || []);
+  if (signature !== measurementsSignature) {
+    measurementsSignature = signature;
+    element('measurements').replaceChildren(...(state.measurements || []).map(result => {
+      const row = document.createElement('tr');
+      if (result.count) row.title = `${result.endpoint} · ${new Date(result.time).toLocaleString('tr-TR')}`;
+      const values = [methodNames[result.method], result.count ? `${result.count} / 10` : 'Ölçülmedi',
+        ...['serverKeyMs', 'clientKeyMs', 'exchangeMs', 'keyPayloadBytes', 'totalBytes'].map(key =>
+          result.count ? Number(result[key]).toFixed(key.endsWith('Ms') ? 3 : 1) : '—')];
+      for (const value of values) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
+      return row;
+    }));
+  }
 }
 
 function render(state) {
   currentState = state;
   const isServer = state.role === 'server';
+  renderSecurity(state);
   element('title').textContent = isServer ? 'Sunucu Kontrol Merkezi' : 'Güvenli Haberleşme';
   element('subtitle').textContent = isServer ? 'Bağlantıları ve sunucudan geçen mesajları takip et.' : 'İki istemci, ortak bir haberleşme sunucusu.';
   element('client-panel').hidden = isServer;
@@ -35,10 +87,14 @@ function render(state) {
   element('status').classList.toggle('online', state.connected);
   updateControls();
   const newTransferSignature = JSON.stringify(state.transfer || {});
-  if (state.transfer?.status && newTransferSignature !== transferSignature) {
+  if (state.connected && state.mode === 'secure') {
+    element('file-progress').value = 0;
+    element('file-status').textContent = 'Güvenli PDF aktarımı sonraki aşamada eklenecek.';
+    transferSignature = '';
+  } else if (newTransferSignature !== transferSignature) {
     transferSignature = newTransferSignature;
-    element('file-progress').value = state.transfer.percent;
-    element('file-status').textContent = `${state.transfer.name}: ${state.transfer.status}`;
+    element('file-progress').value = state.transfer?.percent || 0;
+    element('file-status').textContent = state.transfer?.status ? `${state.transfer.name}: ${state.transfer.status}` : 'Bir PDF seçerek başlayın.';
   }
   if (state.storage) element('storage').textContent = `Kayıt klasörü: ${state.storage}`;
   const newFilesSignature = JSON.stringify(state.files || []);
@@ -69,7 +125,8 @@ function render(state) {
     element('server-info').textContent = `Haberleşme portu: ${state.tcpPort}`;
     element('clients').replaceChildren(...state.clients.map(name => {
       const item = document.createElement('li');
-      item.textContent = name;
+      const security = state.clientSecurity?.find(peer => peer.name === name);
+      item.textContent = security?.method ? `${name} · ${methodNames[security.method]}` : name;
       return item;
     }));
     if (!state.clients.length) element('clients').textContent = 'İstemciler bekleniyor…';
@@ -127,7 +184,27 @@ async function submit(path, data) {
 
 element('connect-form').addEventListener('submit', event => {
   event.preventDefault();
-  if (!busy) submit('/api/connect', new FormData(event.currentTarget));
+  if (!busy) {
+    element('status').textContent = element('mode').value === 'secure' ? 'Anahtar paylaşımı ve sunucu doğrulaması yapılıyor…' : 'Bağlanıyor…';
+    submit('/api/connect', new FormData(event.currentTarget));
+  }
+});
+element('mode').addEventListener('change', modeSelectionChanged);
+element('toggle-mode').addEventListener('click', () => {
+  if (!busy && currentState?.role === 'server') submit('/api/mode', { mode: currentState.mode === 'secure' ? 'insecure' : 'secure' });
+});
+element('copy-fingerprint').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(element('server-fingerprint').value);
+    element('copy-status').textContent = 'Parmak izi kopyalandı.';
+  } catch {
+    element('server-fingerprint').select();
+    element('copy-status').textContent = 'Seçili parmak izini Ctrl+C ile kopyalayabilirsiniz.';
+  }
+});
+element('benchmark').addEventListener('click', () => {
+  if (busy || !element('connect-form').reportValidity()) return;
+  submit('/api/benchmark', new FormData(element('connect-form')));
 });
 element('disconnect').addEventListener('click', () => {
   if (!busy) submit('/api/disconnect', {});
@@ -182,4 +259,5 @@ async function poll() {
     setTimeout(poll, 800);
   }
 }
+modeSelectionChanged();
 poll();

@@ -12,7 +12,7 @@ public final class Main {
             if (args[0].equals("server") && args.length == 3) {
                 RelayServer relay = new RelayServer(parsePort(args[2]));
                 WebUi ui;
-                try { ui = new WebUi(webPort, relay::state, null, relay.files()); }
+                try { ui = new WebUi(webPort, relay); }
                 catch (Exception exception) { relay.close(); throw exception; }
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     ui.close();
