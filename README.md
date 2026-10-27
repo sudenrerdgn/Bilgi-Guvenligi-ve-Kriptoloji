@@ -189,4 +189,4 @@ güvenli mod için gerçek `.pcapng` kaydı henüz üretilmedi.
 - [Java HTTP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.httpserver/com/sun/net/httpserver/HttpServer.html)
 - [Java TCP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html)
 
-
+..
