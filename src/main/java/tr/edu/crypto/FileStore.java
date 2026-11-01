@@ -89,17 +89,18 @@ public final class FileStore {
         }
     }
 
-    public static void transmit(OutputStream output, String id, String name, String sender,
+    public static void transmit(SecureChannel channel, String id, String name, String sender,
                                 long size, InputStream input, LongConsumer progress) throws IOException {
-        Protocol.write(output, new Protocol.Frame("FILE_START", id, size + "\n" + name,
+        // Metin, dosya ve teslim onaylari ayni kanali ve nonce sayacini kullanir.
+        channel.write(new Protocol.Frame("FILE_START", id, size + "\n" + name,
                 sender.getBytes(StandardCharsets.UTF_8)));
         long sent = 0;
         byte[] chunk;
         while ((chunk = input.readNBytes(CHUNK_BYTES)).length > 0) {
-            Protocol.write(output, new Protocol.Frame("FILE_CHUNK", id, "", chunk));
+            channel.write(new Protocol.Frame("FILE_CHUNK", id, "", chunk));
             sent += chunk.length;
             progress.accept(sent);
         }
-        Protocol.write(output, new Protocol.Frame("FILE_END", id, ""));
+        channel.write(new Protocol.Frame("FILE_END", id, ""));
     }
 }

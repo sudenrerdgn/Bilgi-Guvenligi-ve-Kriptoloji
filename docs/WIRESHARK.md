@@ -2,7 +2,8 @@
 
 Bu deney, en az iki **fiziksel bilgisayarda** yapılır. Sunucu ve istemci tarafında
 aynı deneyin ayrı `.pcapng` kayıtları alınır. Tek bilgisayar/loopback testi bunun
-yerine geçmez. Aşağıdaki kayıtlar henüz alınmış değildir.
+yerine geçmez. İlk deneyin sunucu ve istemci kayıtları alındı ve içerikleri
+[doğrulandı](../captures/insecure/README.md). Aşağıdaki adımlar deneyi tekrarlamak içindir.
 
 ## 1. Uygulamaları hazırlayın
 
@@ -99,7 +100,7 @@ Get-FileHash -Algorithm SHA256 -LiteralPath .\samples\wireshark-test.pdf
 
 Örnek PDF özellikle sıkıştırılmadan üretildi. Başka PDF'lerin metni kendi iç
 sıkıştırması yüzünden okunmayabilir; bu durum ağda şifrelendiği anlamına gelmez.
-PDF dosya baytları bu uygulamada Base64 veya şifreleme olmadan taşınır.
+PDF dosya baytları güvensiz modda Base64 veya şifreleme olmadan taşınır.
 
 `FILE_CHUNK` parçaları 32 KiB'dır; bir uygulama parçası bir TCP paketiyle aynı şey
 değildir. TCP parçalayabilir veya birleştirebilir. Ayrıca protokol başlıkları nedeniyle
@@ -148,5 +149,6 @@ Henüz alınmamış bir kayıt için teslim edildi bilgisi veya örnek `.pcapng`
 - Ekran çalışıp paket görünmüyorsa seçilen arabirimi kontrol edin. Uzak sunucu
   IP alanında `127.0.0.1` yazıyorsa aynı bilgisayara bağlanmaya çalışıyorsunuzdur.
 
-Güvenli mod eklenince güvensiz mod seçeneği korunacak. İlk kaydı şimdi almak,
-iki modu aynı senaryoyla karşılaştırabileceğiniz bir başlangıç kaydı sağlar.
+Güvenli ve güvensiz mod seçenekleri birlikte bulunur. Bu kayıtlar karşılaştırmanın
+güvensiz başlangıcını oluşturur. Şifreli metin ve PDF deneyi için
+[güvenli mod rehberini](SECURE_MODE.md) kullanın.

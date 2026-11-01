@@ -16,6 +16,14 @@ public final class FileTransferTest {
     private static int checks;
 
     public static void main(String[] args) throws Exception {
+        runTransferTests(false);
+        runTransferTests(true);
+        HTTP.close();
+        System.out.println("BASARILI: " + checks + " PDF kontrolu tamamlandi (guvensiz ve AES-128-GCM/RSA).");
+    }
+
+    private static void runTransferTests(boolean secure) throws Exception {
+        System.out.println("PDF modu: " + (secure ? "AES-128-GCM / RSA-2048" : "guvensiz"));
         Path root = Files.createTempDirectory("crypto-file-test-");
         try (RelayServer server = new RelayServer(0, root.resolve("server"));
              ChatClient first = new ChatClient(root.resolve("first"));
@@ -26,9 +34,12 @@ public final class FileTransferTest {
             byte[] pdf = new byte[180_000];
             new Random(17).nextBytes(pdf);
             System.arraycopy("%PDF-1.4\n".getBytes(StandardCharsets.US_ASCII), 0, pdf, 0, 9);
-            first.connect("127.0.0.1", server.port(), "Sude");
+            if (secure) server.setMode("secure");
+            String mode = secure ? "secure" : "insecure";
+            String pin = server.state().get("fingerprint").toString();
+            first.connect("127.0.0.1", server.port(), "Sude", mode, "RSA", pin);
             check(upload(firstUi, "örnek.pdf", pdf).statusCode() == 503, "Alici yoksa basari bildirilmiyor");
-            second.connect("127.0.0.1", server.port(), "Ece");
+            second.connect("127.0.0.1", server.port(), "Ece", mode, "RSA", pin);
             check(upload(firstUi, "örnek.pdf", pdf).statusCode() == 200, "Parcali PDF aktarimi alici ACK ile tamamlaniyor");
             Map<String, Object> received = second.files().snapshot().getFirst();
             String id = received.get("id").toString();
@@ -66,14 +77,27 @@ public final class FileTransferTest {
             String sampleId = second.files().snapshot().stream().filter(file -> file.get("name").equals("wireshark-test.pdf"))
                     .findFirst().orElseThrow().get("id").toString();
             check(Arrays.equals(download(secondUi, sampleId).body(), sample), "Ornek PDF indirildiginde degismiyor");
+            if (secure) {
+                byte[] maximum = new byte[FileStore.MAX_BYTES];
+                new Random(28).nextBytes(maximum);
+                System.arraycopy(pdf, 0, maximum, 0, 9);
+                check(upload(firstUi, "sinir.pdf", maximum).statusCode() == 200,
+                        "Tam 10 MiB PDF sifreli kanalda cerceve sinirini asmadan aktariliyor");
+                String maximumId = second.files().snapshot().stream().filter(file -> file.get("name").equals("sinir.pdf"))
+                        .findFirst().orElseThrow().get("id").toString();
+                check(Arrays.equals(download(secondUi, maximumId).body(), maximum), "10 MiB dosyanin tum baytlari korunuyor");
+            }
             second.close();
             await(() -> !WebUi.json(server.state().get("clients")).contains("Ece"));
             String partialId = UUID.randomUUID().toString();
             try (Socket raw = new Socket("127.0.0.1", server.port())) {
-                Protocol.write(raw.getOutputStream(), new Protocol.Frame("HELLO", "Eksik", ""));
-                Protocol.read(raw.getInputStream());
-                Protocol.write(raw.getOutputStream(), new Protocol.Frame("FILE_START", partialId, "100\neksik.pdf"));
-                Protocol.write(raw.getOutputStream(), new Protocol.Frame("FILE_CHUNK", partialId, "", "%PDF-".getBytes()));
+                raw.setSoTimeout(5000);
+                SecureChannel channel = new SecureChannel(raw.getInputStream(), raw.getOutputStream());
+                if (secure) KeyExchange.client(channel, "Eksik", "RSA", pin, false);
+                else channel.write(new Protocol.Frame("HELLO", "Eksik", ""));
+                check(channel.read().type().equals("READY"), "Eksik aktarim testi baglantisi kuruldu");
+                channel.write(new Protocol.Frame("FILE_START", partialId, "100\neksik.pdf"));
+                channel.write(new Protocol.Frame("FILE_CHUNK", partialId, "", "%PDF-".getBytes()));
                 await(() -> Files.exists(root.resolve("server").resolve(partialId + ".part")));
             }
             await(() -> !Files.exists(root.resolve("server").resolve(partialId + ".part")));
@@ -84,7 +108,6 @@ public final class FileTransferTest {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
             }
         }
-        System.out.println("BASARILI: " + checks + " PDF kontrolu tamamlandi.");
     }
 
     private static void send(ChatClient client, byte[] pdf) {

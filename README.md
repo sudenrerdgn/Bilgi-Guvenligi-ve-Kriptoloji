@@ -4,13 +4,14 @@ Java sunucusu ve iki Java istemcisinden oluşan, Türkçe web arayüzlü ders pr
 Her uygulama kendi bilgisayarında çalışır; arayüzü o bilgisayarın tarayıcısında açılır.
 
 **Mevcut aşama:** Sunucuda güvenli/güvensiz mod geçişi; AES-128-GCM ile güvenli
-metin aktarımı; RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768 anahtar paylaşımı.
+metin ve parçalı PDF aktarımı; RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768 anahtar paylaşımı.
 İstemci ekranında her yöntem için 10 gerçek bağlantı ölçümü, ortalamalar ve CSV
-indirme bulunur. PDF aktarımı şimdilik yalnızca güvensiz modda çalışır.
+indirme bulunur. PDF parçaları ve teslim onayları güvenli modda AES kanalı üzerinden taşınır.
 
 **Başlangıç:** [Güvenli modu birlikte çalıştırma rehberi](docs/SECURE_MODE.md).
-Güvensiz `.pcapng` dosyaları `captures/insecure/` altında bulunuyor; içeriklerinin
-doğrulanması ve deney bilgilerinin doldurulması gerekiyor. Güvenli modun iki
+**Ece'nin haftalık bölümü:** [AES-128 ve RSA-2048 sunum notları](docs/ECE_AES_RSA.md).
+Güvensiz `.pcapng` dosyalarının metin, PDF ve teslim onayları doğrulandı;
+[deney bulguları](captures/insecure/README.md) kaydedildi. Güvenli modun iki
 bilgisayarda Wireshark deneyi henüz yapılmadı.
 
 ## Görev Dağılımı:
@@ -138,7 +139,8 @@ Tarayıcı sorgulama süresi mevcut ölçümlere dahil değildir.
 ## PDF gönderme ve indirme
 
 1. Sunucu ve iki istemciyi güncel kodla yeniden derleyip başlatın.
-   Sunucu ve istemciler **güvensiz modda** olmalıdır; güvenli PDF bu aşamada kapalıdır.
+   Sunucu ve istemciler aynı modda olmalıdır. Güvenli mod için önce RSA-2048 ile
+   bağlanın; PDF içeriği, adı ve teslim onayı AES-128-GCM ile şifrelenir.
 2. İki istemciyi de sunucuya bağlayın.
 3. **PDF gönder** bölümünden en fazla **10 MB** bir PDF seçin ve gönderin.
 4. İlerleme çubuğu sunucuya gönderilen baytları gösterir. **Alıcıya teslim edildi**
@@ -153,12 +155,15 @@ Dosyalar 32 KiB parçalarla `FILE_START → FILE_CHUNK → FILE_END` akışıyla
 Dosya çerçevelerinde `sender` alanı aktarım UUID'sidir. `FILE_START.text`, boyut,
 satır sonu ve dosya adından oluşur; `data` alanı gönderen adını içerir. Sunucu
 gönderen adını bağlantı kaydından alır. `FILE_CHUNK.data` ham PDF baytlarıdır.
-Sunucu tamamını kaydettikten sonra alıcıya aynı akışla iletir. Alıcı dosyayı kaydedip
+Güvenli modda bu çerçevelerin tamamı şifreli `SECURE` zarfına konur.
+Sunucu tamamını kaydettikten sonra alıcıya kendi bağlantı anahtarıyla aynı akışı iletir. Alıcı dosyayı kaydedip
 `FILE_ACK` gönderir; sunucu bu onayı göndericiye iletir. Teslim hatası `FILE_ERROR`
 ile bildirilir. Sunucu 30 saniye, gönderen istemci 35 saniye teslim onayı bekler.
 
 - Sunucu dosyaları: `runtime/server/`
 - İstemci dosyaları: `runtime/client-8081/`, `runtime/client-8082/`
+- Güvenli mod ağ aktarımını korur; sunucu ve alıcı PDF'yi çözüp okunabilir halde
+  kaydeder. Disk şifrelemesi ve uçtan uca şifreleme yapılmaz.
 - Diskte dosya adı UUID'dir; indirmede özgün dosya adı kullanılır.
 - Aynı adlı dosyalar birbirinin üzerine yazılmaz. Kesilen bağlantının `.part`
   dosyası temizlenir; uygulama zorla sonlandırılırsa artık `.part` dosyası kalabilir.
@@ -188,5 +193,3 @@ güvenli mod için gerçek `.pcapng` kaydı henüz üretilmedi.
 
 - [Java HTTP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.httpserver/com/sun/net/httpserver/HttpServer.html)
 - [Java TCP sunucusu API](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html)
-
-..

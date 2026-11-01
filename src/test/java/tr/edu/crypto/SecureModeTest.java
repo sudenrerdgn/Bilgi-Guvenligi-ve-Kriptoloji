@@ -19,6 +19,7 @@ public final class SecureModeTest {
         testHkdf();
         testRecords();
         testServerProof();
+        testDamagedFile();
         Path directory = Files.createTempDirectory("crypto-secure-test-");
         try (RelayServer server = new RelayServer(0, directory.resolve("server"));
              WebUi serverUi = new WebUi(0, server);
@@ -50,9 +51,6 @@ public final class SecureModeTest {
                 SecureChannel channel = new SecureChannel(raw.getInputStream(), raw.getOutputStream());
                 KeyExchange.client(channel, "Dogrulama", "ECDH", pin, false);
                 check(channel.read().type().equals("READY"), "Dogrudan protokol istemcisi guvenli baglanti kuruyor");
-                channel.write(new Protocol.Frame("FILE_START", UUID.randomUUID().toString(), "10\ntest.pdf", Crypto.utf8("Dogrulama")));
-                check(channel.read().type().equals("ERROR") && Files.notExists(directory.resolve("server")),
-                        "Arayuz atlansa da sunucu guvenli PDF baslangicini reddediyor");
                 Protocol.write(raw.getOutputStream(), new Protocol.Frame("CHAT", "Dogrulama", "ENJEKTE-ACIK-METIN"));
                 expectFailure(channel::read, "Sunucu guvenli oturuma acik metin enjeksiyonunda soketi kapatiyor");
             }
@@ -96,9 +94,22 @@ public final class SecureModeTest {
                     expectFailure(() -> duplicate.connect("127.0.0.1", server.port(), "Ucuncu", "secure", method, pin),
                             method + ": guvenli modda ucuncu istemci reddediliyor");
                 }
-                expectFailure(() -> first.sendFile("test.pdf", "%PDF-1.4 sample".getBytes(StandardCharsets.UTF_8)),
-                        method + ": guvenli modda PDF sunucuya gonderilmiyor");
-                check(Files.notExists(directory.resolve("server")), method + ": guvenli PDF diske yazilmiyor");
+                byte[] pdf = new byte[180_000];
+                new Random(42).nextBytes(pdf);
+                String marker = "%PDF-1.4\nGIZLI-PDF-" + method + "-" + UUID.randomUUID();
+                System.arraycopy(Crypto.utf8(marker), 0, pdf, 0, Crypto.utf8(marker).length);
+                String filename = "şifreli-" + method + ".pdf";
+                first.sendFile(filename, pdf);
+                Map<String, Object> received = second.files().snapshot().stream()
+                        .filter(file -> file.get("name").equals(filename)).findFirst().orElseThrow();
+                String fileId = received.get("id").toString();
+                check(Arrays.equals(Files.readAllBytes(second.files().find(fileId).path()), pdf)
+                        && Arrays.equals(Files.readAllBytes(server.files().find(fileId).path()), pdf),
+                        method + ": farkli anahtar yontemleri arasinda PDF kaydi ve alici onayi tamam");
+                String wireText = new String(proxy.bytes(), StandardCharsets.UTF_8);
+                check(!wireText.contains(marker) && !wireText.contains(filename) && !wireText.contains(fileId),
+                        method + ": PDF icerigi, dosya adi ve aktarim kimligi TCP'de acik gorunmuyor");
+                check(proxy.encryptedAfterHandshake(), method + ": el sikismasi sonrasi tum cerceveler SECURE (PDF ve ACK dahil)");
                 server.setMode("secure");
                 check(connected(first) && connected(second), "Ayni moda tekrar gecis baglantilari kapatmiyor");
                 first.close(); second.close();
@@ -129,8 +140,9 @@ public final class SecureModeTest {
             first.sendMessage("Moddan sonra guvensiz metin");
             await(() -> stateText(second).contains("Moddan sonra guvensiz metin"));
             check(true, "Guvenli moddan guvensiz moda geri donulebiliyor");
+            int before = second.files().snapshot().size();
             first.sendFile("geri.pdf", "%PDF-1.4 insecure regression".getBytes(StandardCharsets.UTF_8));
-            check(second.files().snapshot().size() == 1, "Geri donuste guvensiz PDF aktarimi calisiyor");
+            check(second.files().snapshot().size() == before + 1, "Geri donuste guvensiz PDF aktarimi calisiyor");
         } finally {
             try (var paths = Files.walk(directory)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
@@ -190,6 +202,43 @@ public final class SecureModeTest {
                 "Dogru parmak izi ama gecersiz sunucu imzasi reddediliyor");
     }
 
+    private static void testDamagedFile() throws Exception {
+        Path directory = Files.createTempDirectory("crypto-damaged-file-");
+        try (RelayServer server = new RelayServer(0, directory)) {
+            server.setMode("secure");
+            try (Socket connection = new Socket("127.0.0.1", server.port())) {
+                connection.setSoTimeout(5000);
+                class DamagingOutput extends FilterOutputStream {
+                    boolean damage;
+                    DamagingOutput(OutputStream output) { super(output); }
+                    @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+                        byte[] copy = Arrays.copyOfRange(bytes, offset, offset + length);
+                        if (damage) { copy[copy.length - 1] ^= 1; damage = false; }
+                        out.write(copy);
+                    }
+                }
+                DamagingOutput output = new DamagingOutput(connection.getOutputStream());
+                SecureChannel channel = new SecureChannel(connection.getInputStream(), output);
+                KeyExchange.client(channel, "BozukPDF", "RSA", server.state().get("fingerprint").toString(), false);
+                check(channel.read().type().equals("READY"), "Bozuk PDF testi RSA ile baglaniyor");
+                String id = UUID.randomUUID().toString();
+                channel.write(new Protocol.Frame("FILE_START", id, "10\nbozuk.pdf"));
+                channel.write(new Protocol.Frame("FILE_CHUNK", id, "", Crypto.utf8("%PDF-")));
+                await(() -> Files.exists(directory.resolve(id + ".part")));
+                output.damage = true;
+                channel.write(new Protocol.Frame("FILE_CHUNK", id, "", Crypto.utf8("12345")));
+                expectFailure(channel::read, "Bozuk PDF etiketi teslim onayi yerine baglantinin kapanmasina yol aciyor");
+                await(() -> Files.notExists(directory.resolve(id + ".part")));
+                check(server.files().find(id) == null && Files.notExists(directory.resolve(id + ".pdf")),
+                        "Dogrulanamayan PDF tamamlanmis dosyaya donusmuyor ve parcasi temizleniyor");
+            }
+        } finally {
+            try (var paths = Files.walk(directory)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+            }
+        }
+    }
+
     private static void sendMany(ChatClient client, String prefix) {
         try { for (int index = 0; index < 20; index++) client.sendMessage(prefix + index); }
         catch (IOException exception) { throw new UncheckedIOException(exception); }
@@ -230,6 +279,7 @@ public final class SecureModeTest {
         private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
         private final Set<Socket> sockets = ConcurrentHashMap.newKeySet();
         private final ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        private final List<ByteArrayOutputStream> directions = new CopyOnWriteArrayList<>();
         WireProxy(int target) throws IOException {
             workers.submit(() -> {
                 while (!listener.isClosed()) {
@@ -244,11 +294,34 @@ public final class SecureModeTest {
         }
         int port() { return listener.getLocalPort(); }
         byte[] bytes() { synchronized (captured) { return captured.toByteArray(); } }
+        boolean encryptedAfterHandshake() throws IOException {
+            int encrypted = 0;
+            for (ByteArrayOutputStream direction : directions) {
+                byte[] bytes;
+                synchronized (direction) { bytes = direction.toByteArray(); }
+                ByteArrayInputStream input = new ByteArrayInputStream(bytes);
+                boolean active = false;
+                while (input.available() >= 4) {
+                    // Devam eden baglantida son TCP parcasi henuz tamamlanmamis olabilir.
+                    input.mark(4);
+                    int size = new DataInputStream(input).readInt();
+                    input.reset();
+                    if (input.available() < size + 4) break;
+                    Protocol.Frame frame = Protocol.read(input);
+                    if (frame.type().equals("SECURE")) { active = true; encrypted++; }
+                    else if (active || !Set.of("SECURE_HELLO", "MEASURE_HELLO", "KEY_SERVER", "KEY_CLIENT").contains(frame.type())) return false;
+                }
+            }
+            return encrypted > 0;
+        }
         private void pipe(Socket source, Socket destination) {
+            ByteArrayOutputStream direction = new ByteArrayOutputStream();
+            directions.add(direction);
             try {
                 byte[] buffer = new byte[8192]; int size;
                 while ((size = source.getInputStream().read(buffer)) != -1) {
                     synchronized (captured) { captured.write(buffer, 0, size); }
+                    synchronized (direction) { direction.write(buffer, 0, size); }
                     destination.getOutputStream().write(buffer, 0, size); destination.getOutputStream().flush();
                 }
             } catch (IOException ignored) { /* Testte iki soket birlikte kapanir. */ }

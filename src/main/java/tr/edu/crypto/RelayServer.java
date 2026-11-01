@@ -23,7 +23,7 @@ public final class RelayServer implements AutoCloseable {
     private record PendingFile(Peer sender, Peer recipient, FileStore.StoredFile file) {}
     public FileStore files() { return files; }
 
-    private record Peer(String name, Socket socket, OutputStream output, SecureChannel channel, String method) {
+    private record Peer(String name, Socket socket, SecureChannel channel, String method) {
         void send(String type, String sender, String text) throws IOException {
             channel.write(new Protocol.Frame(type, sender, text));
         }
@@ -84,7 +84,7 @@ public final class RelayServer implements AutoCloseable {
                 }
             }
             if (secure) KeyExchange.server(channel, hello, identity);
-            Peer candidate = new Peer(name, socket, socket.getOutputStream(), channel, secure ? hello.text() : "");
+            Peer candidate = new Peer(name, socket, channel, secure ? hello.text() : "");
             synchronized (peers) {
                 if (version != modeVersion) return;
                 if (measure) { candidate.send("READY", "Sunucu", "Ölçüm tamamlandı."); return; }
@@ -106,10 +106,6 @@ public final class RelayServer implements AutoCloseable {
             while (!socket.isClosed()) {
                 Protocol.Frame frame = channel.read();
                 synchronized (peers) { if (version != modeVersion) return; }
-                if (secure && frame.type().startsWith("FILE_")) {
-                    peer.send("ERROR", "Sunucu", "Güvenli modda PDF aktarımı henüz desteklenmiyor.");
-                    continue;
-                }
                 if (frame.type().equals("FILE_START")) {
                     if (incoming != null) throw new IOException("Önce mevcut PDF aktarımını tamamlayın.");
                     incoming = files.begin(frame, peer.name());
@@ -176,8 +172,8 @@ public final class RelayServer implements AutoCloseable {
             sender.send("FILE_ERROR", file.id(), "PDF sunucuda kayıtlı; diğer istemci bağlı olmadığı için iletilemedi.");
             return;
         }
-        if (recipient.channel().secure() || sender.channel().secure()) {
-            sender.send("FILE_ERROR", file.id(), "Güvenli modda PDF aktarımı henüz desteklenmiyor.");
+        if (recipient.channel().secure() != sender.channel().secure()) {
+            sender.send("FILE_ERROR", file.id(), "Bağlantı modları farklı; yeniden bağlanın.");
             return;
         }
         PendingFile pending = new PendingFile(sender, recipient, file);
@@ -186,7 +182,7 @@ public final class RelayServer implements AutoCloseable {
             if (pendingFiles.remove(file.id(), pending)) notifyFileError(pending, "PDF teslim onayı zaman aşımına uğradı.");
         }, 30, TimeUnit.SECONDS);
         try (InputStream input = Files.newInputStream(file.path())) {
-            FileStore.transmit(recipient.output(), file.id(), file.name(), sender.name(), file.size(), input, ignored -> {});
+            FileStore.transmit(recipient.channel(), file.id(), file.name(), sender.name(), file.size(), input, ignored -> {});
         } catch (IOException exception) {
             pendingFiles.remove(file.id(), pending);
             recipient.socket().close();

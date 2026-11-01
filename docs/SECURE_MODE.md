@@ -1,7 +1,7 @@
-# Güvenli metin aktarımı — Zeynep ve Ece için çalışma rehberi
+# Güvenli metin ve PDF aktarımı — Zeynep ve Ece için çalışma rehberi
 
-Bu aşamada sunucu mod düğmesi, dört anahtar paylaşım yöntemi, şifreli metin ve
-karşılaştırma ölçümleri vardır. PDF yalnızca güvensiz modda çalışır. Elle yazılmış
+Bu aşamada sunucu mod düğmesi, dört anahtar paylaşım yöntemi, şifreli metin/PDF ve
+karşılaştırma ölçümleri vardır. PDF her iki modda çalışır. Elle yazılmış
 AES ve kütüphane karşılaştırması henüz yapılmadı; ağda Java JCA/JCE kullanılır.
 
 ## 1. Başlatın
@@ -54,13 +54,19 @@ Sunucu `http://127.0.0.1:8080`, istemciler `http://127.0.0.1:8081` ve
    ekranda **Güvenli mod · AES-128-GCM** ve **Bağlı** görünür.
 6. İki yönde metin gönderin. Sunucuda okunabilir içerik görünmesi beklenir:
    sunucu çözer ve alıcı bağlantısının ayrı anahtarıyla yeniden şifreler.
-7. Bağlantıları kesip diğer yöntemleri deneyin. İstemciler farklı yöntem de
+7. **PDF gönder** bölümünden `samples/wireshark-test.pdf` seçin. **Alıcıya teslim
+   edildi** yazısını bekleyin, diğer istemcide **İndir** ile açın. Ters yönde de
+   gönderin. Güvenli modda PDF adı, parçaları ve teslim onayı şifrelenir.
+8. Bağlantıları kesip diğer yöntemleri deneyin. İstemciler farklı yöntem de
    seçebilir; her istemci–sunucu bağlantısı bağımsızdır.
 
 Sunucu ile istemci farklı moddaysa bağlantı reddedilir. Güvenli bağlantı isteği
 başarısız olduğunda otomatik olarak güvensiz moda düşülmez. Yanlış parmak izi,
 geçersiz imza, değiştirilmiş/tekrarlanmış şifreli kayıt bağlantının reddine yol açar.
-Bu aşamada PDF düğmesi güvenli modda devre dışıdır; doğrudan API isteği de reddedilir.
+PDF sınırı 10 MiB (10 × 1024 × 1024 bayt), parça boyutu 32 KiB'dır.
+İlerleme %100 olduğunda sunucuya gönderim bitmiştir; başarı için alıcının kayıt
+onayı da gerekir. Sunucu ve alıcı dosyayı okunabilir halde diske kaydeder;
+AES ağ üzerindeki aktarımı korur.
 
 ## 4. Süre ve boyutları karşılaştırın
 
@@ -106,15 +112,20 @@ filtre ayrıntıları [mevcut Wireshark rehberinde](WIRESHARK.md) bulunur.
 1. İki tarafta **yakalama filtresi** `tcp port 5000` ile kaydı başlatın.
 2. Sunucuyu güvenli moda alın, yöntemi seçin ve iki istemciyi bağlayın.
 3. `GUVENLI-METIN-TEST-001` ve ters yönde `GUVENLI-YANIT-002` gönderin.
-4. **Görüntüleme filtresi** `tcp.port == 5000`, ardından **Follow → TCP Stream**
+4. Örnek PDF'yi iki yönde gönderin ve her aktarımda teslim onayını bekleyin.
+   Kaynak ve indirilen PDF için `Get-FileHash -Algorithm SHA256 -LiteralPath DOSYA_YOLU`
+   sonuçlarını karşılaştırın.
+5. **Görüntüleme filtresi** `tcp.port == 5000`, ardından **Follow → TCP Stream**
    ile akışı inceleyin. Mesaj metinleri okunmamalı; `SECURE` zarfı, yöntem,
-   kullanıcı adı ve açık anahtar paylaşım bilgileri görülebilir. Metadata gizlenmez.
-5. Anahtar paylaşımını yakalamak için kaydı bağlantıdan önce başlatın. Karşılaştırma
+   kullanıcı adı ve açık anahtar paylaşım bilgileri görülebilir. PDF adı,
+   `%PDF-1.4`, `KRIPTOLOJI GUVENSIZ PDF TESTI` içeriği ve `FILE_ACK` açık görünmemeli.
+   Paket boyutları ve zamanlaması gizlenmez.
+6. Anahtar paylaşımını yakalamak için kaydı bağlantıdan önce başlatın. Karşılaştırma
    düğmesi her tekrar için yeni TCP bağlantısı açar; akışları ayrı inceleyin.
-6. Ana pencereden **File → Save As** ile gerçek `.pcapng` kayıtlarını kaydedin.
-   Önerilen klasör `captures/secure/`; örneğin `rsa-sunucu-metin.pcapng` ve
-   `rsa-istemci-metin.pcapng`. Diğer yöntemlerde aynı senaryoyu uygulayın.
-7. Tarih, iki bilgisayarın IP/JDK/Wireshark sürümleri, yöntem, kaynak commit,
+7. Ana pencereden **File → Save As** ile gerçek `.pcapng` kayıtlarını kaydedin.
+   Önerilen klasör `captures/secure/`; örneğin `rsa-sunucu-metin-pdf.pcapng` ve
+   `rsa-istemci-metin-pdf.pcapng`. Diğer yöntemlerde aynı senaryoyu uygulayın.
+8. Tarih, iki bilgisayarın IP/JDK/Wireshark sürümleri, yöntem, kaynak commit,
    stream numaraları ve CSV dosyasını birlikte kaydedin.
 
 Otomatik testin TCP bayt kontrolü gerçek iki bilgisayarlı Wireshark deneyinin
@@ -134,6 +145,9 @@ Sunucu → AES-GCM(FINISHED_ACK) → AES-GCM(READY)
 İstemci A → AES-GCM(CHAT) → Sunucu çözer
 Sunucu → alıcı B'nin anahtarıyla AES-GCM(MESSAGE)
 Sunucu → A'nın anahtarıyla AES-GCM(SENT)
+İstemci A → AES-GCM(FILE_START / FILE_CHUNK / FILE_END) → Sunucu çözer ve kaydeder
+Sunucu → B'nin anahtarıyla AES-GCM(FILE_START / FILE_CHUNK / FILE_END)
+İstemci B → kaydet → AES-GCM(FILE_ACK) → Sunucu → A'nın anahtarıyla AES-GCM(FILE_ACK)
 ```
 
 `SENT`, alıcının soketine yazma onayıdır; alıcının okuduğu anlamına gelmez.
@@ -165,7 +179,11 @@ işler; bu sistem uçtan uca şifreleme yapmaz. Ders için geliştirilen bu prot
 
 Mevcut metin/PDF testlerine ek olarak dört yöntem, gerçek TCP'de şifreli metin,
 mod geçişi, yanlış kimlik, bozuk GCM etiketi, tekrar/sıra kontrolü, onarlı ölçümler
-ve güvenli PDF engeli kontrol edilir. HKDF bağımsız RFC test vektörüyle doğrulanır.
+ve güvenli PDF aktarımı kontrol edilir. HTTP yükleme/indirme, 10 MiB sınırı,
+eşzamanlı iki yönlü PDF, kesinti temizliği ve bozuk PDF GCM etiketinin reddi test edilir.
+Gerçek TCP'yi aktaran test vekili, el sıkışmasından sonra PDF ve onaylar dahil
+yalnızca `SECURE` çerçeveleri taşındığını kontrol eder.
+HKDF bağımsız RFC test vektörüyle doğrulanır.
 
 - **Zeynep:** `index.html`, `app.js`, `style.css`; mod ve yöntem seçimi,
   bağlantı durumu, ölçüm tablosu ve CSV kullanımını açıklama.
@@ -174,8 +192,10 @@ ve güvenli PDF engeli kontrol edilir. HKDF bağımsız RFC test vektörüyle do
 - **Sude:** `RelayServer.java`, `WebUi.java`; mod geçişi, oturumlar ve yeniden
   şifreleme akışını açıklama.
 
-Sonraki aşamalar: güvenli PDF; manuel AES çekirdeği ve aynı girdide kütüphane
-karşılaştırması; iki bilgisayarda deney, Wireshark ve rapor.
+Ece'nin bu haftaki sunumu için [AES-128 ve RSA-2048 açıklaması](ECE_AES_RSA.md).
+
+Sonraki aşamalar: manuel AES çekirdeği ve aynı girdide kütüphane karşılaştırması;
+güvenli modda iki bilgisayarlı deney, Wireshark ve rapor.
 
 ## Kaynaklar
 

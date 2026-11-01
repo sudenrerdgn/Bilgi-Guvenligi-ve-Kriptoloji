@@ -15,14 +15,13 @@ function showError(message) {
 function updateControls() {
   const connected = Boolean(currentState?.connected);
   const measuring = Boolean(currentState?.benchmark?.running);
-  const secure = connected && currentState?.mode === 'secure';
   element('connection-fields').disabled = busy || connected || measuring;
   element('disconnect').hidden = !connected;
   element('disconnect').disabled = busy;
   element('message').disabled = !connected;
   element('send').disabled = busy || !connected;
-  element('pdf').disabled = busy || !connected || secure;
-  element('send-file').disabled = busy || !connected || secure;
+  element('pdf').disabled = busy || !connected;
+  element('send-file').disabled = busy || !connected;
   element('toggle-mode').disabled = busy || !currentState;
   element('benchmark').disabled = busy || connected || measuring || element('mode').value !== 'secure';
 }
@@ -42,12 +41,12 @@ function renderSecurity(state) {
   element('mode-badge').textContent = !server && !state.connected ? 'Bağlı değil'
     : secure ? 'Güvenli mod · AES-128-GCM' : 'Güvensiz mod · Açık metin';
   element('mode-badge').classList.toggle('secure', secure && (server || state.connected));
-  element('mode-note-title').textContent = secure ? 'Güvenli mod: metin' : 'Güvensiz mod: metin ve PDF';
+  element('mode-note-title').textContent = secure ? 'Güvenli mod: metin ve PDF' : 'Güvensiz mod: metin ve PDF';
   element('mode-note').textContent = secure
-    ? 'Metinler istemci–sunucu arasında şifrelenir. Sunucu içeriği çözüp alıcıya yeniden şifreler. Güvenli PDF aktarımı sonraki aşamadır.'
+    ? 'Metin ve PDF dosyaları istemci–sunucu arasında AES-128-GCM ile şifrelenir. Sunucu içeriği çözüp alıcıya yeniden şifreler. Kaydedilen PDF dosyaları okunabilir durumdadır.'
     : 'Metin ve PDF içeriği şifrelenmeden aktarılır. Sunucu ve istemciler aynı modda olmalıdır.';
   if (server) {
-    element('server-mode').textContent = secure ? 'Güvenli mod açık · Yalnızca şifreli metin' : 'Güvensiz mod açık · Metin ve PDF';
+    element('server-mode').textContent = secure ? 'Güvenli mod açık · Şifreli metin ve PDF' : 'Güvensiz mod açık · Metin ve PDF';
     element('toggle-mode').textContent = secure ? 'Güvensiz moda geç' : 'Güvenli moda geç';
     if (element('server-fingerprint').value !== state.fingerprint) element('server-fingerprint').value = state.fingerprint;
     return;
@@ -87,11 +86,7 @@ function render(state) {
   element('status').classList.toggle('online', state.connected);
   updateControls();
   const newTransferSignature = JSON.stringify(state.transfer || {});
-  if (state.connected && state.mode === 'secure') {
-    element('file-progress').value = 0;
-    element('file-status').textContent = 'Güvenli PDF aktarımı sonraki aşamada eklenecek.';
-    transferSignature = '';
-  } else if (newTransferSignature !== transferSignature) {
+  if (newTransferSignature !== transferSignature) {
     transferSignature = newTransferSignature;
     element('file-progress').value = state.transfer?.percent || 0;
     element('file-status').textContent = state.transfer?.status ? `${state.transfer.name}: ${state.transfer.status}` : 'Bir PDF seçerek başlayın.';

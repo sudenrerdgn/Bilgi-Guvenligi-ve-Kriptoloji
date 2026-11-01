@@ -11,7 +11,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class ChatClient implements AutoCloseable {
     private final History history = new History();
     private Socket socket;
-    private OutputStream output;
     private SecureChannel channel;
     private String mode = "insecure", method = "";
     private Map<String, Object> lastMeasurement = Map.of();
@@ -57,7 +56,6 @@ public final class ChatClient implements AutoCloseable {
             if (!reply.type().equals("READY")) throw new IOException(reply.text());
             connection.setSoTimeout(0);
             socket = connection;
-            output = stream;
             channel = transport; mode = selectedMode; method = selectedMode.equals("secure") ? selectedMethod : "";
             lastMeasurement = sample;
             name = cleanName;
@@ -79,7 +77,6 @@ public final class ChatClient implements AutoCloseable {
         try {
             while (!connection.isClosed()) {
                 Protocol.Frame frame = transport.read();
-                if (transport.secure() && frame.type().startsWith("FILE_")) throw new IOException("Güvenli PDF desteklenmiyor.");
                 switch (frame.type()) {
                     case "FILE_START" -> {
                         if (incoming != null) throw new IOException("Üst üste PDF aktarımı.");
@@ -119,7 +116,7 @@ public final class ChatClient implements AutoCloseable {
             }
             synchronized (this) {
                 if (socket == connection) {
-                    socket = null; output = null; channel = null;
+                    socket = null; channel = null;
                     failUploads();
                 }
             }
@@ -134,12 +131,11 @@ public final class ChatClient implements AutoCloseable {
         String id = UUID.randomUUID().toString();
         CompletableFuture<Void> completed = new CompletableFuture<>();
         try {
-            OutputStream destination;
+            SecureChannel destination;
             String username;
             synchronized (this) {
                 if (socket == null) throw new IOException("Önce sunucuya bağlanın.");
-                if (channel.secure()) throw new IOException("Güvenli modda PDF aktarımı sonraki aşamada eklenecek.");
-                destination = output;
+                destination = channel;
                 username = name;
                 acknowledgements.put(id, completed);
             }
@@ -225,7 +221,6 @@ public final class ChatClient implements AutoCloseable {
     @Override public synchronized void close() throws IOException {
         Socket previous = socket;
         socket = null;
-        output = null;
         channel = null;
         cancelMeasurement = true;
         if (measurementSocket != null) measurementSocket.close();
