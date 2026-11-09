@@ -9,7 +9,6 @@ metin ve parçalı PDF aktarımı; RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768 a
 indirme bulunur. PDF parçaları ve teslim onayları güvenli modda AES kanalı üzerinden taşınır.
 
 **Başlangıç:** [Güvenli modu birlikte çalıştırma rehberi](docs/SECURE_MODE.md).
-**Ece'nin haftalık bölümü:** [AES-128 ve RSA-2048 sunum notları](docs/ECE_AES_RSA.md).
 **Manuel AES-128:** [Anahtar genişletme ve tur rehberi](docs/MANUAL_AES.md).
 Tur anahtarları ve ara durumları görmek için scripts/manual-aes.ps1 çalıştırın.
 Güvensiz `.pcapng` dosyalarının metin, PDF ve teslim onayları doğrulandı;

@@ -193,7 +193,7 @@ HKDF bağımsız RFC test vektörüyle doğrulanır.
 - **Sude:** `RelayServer.java`, `WebUi.java`; mod geçişi, oturumlar ve yeniden
   şifreleme akışını açıklama.
 
-Ece'nin bu haftaki sunumu için [AES-128 ve RSA-2048 açıklaması](ECE_AES_RSA.md).
+Ece'nin manuel AES çalışması için [anahtar genişletme ve tur rehberi](MANUAL_AES.md).
 
 Sonraki aşamalar: güvenli modda iki bilgisayarlı deney, Wireshark ve rapor.
 Manuel çekirdekle Java AES arasında performans karşılaştırması henüz yapılmadı.
