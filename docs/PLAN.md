@@ -47,7 +47,8 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
 - [x] AES-128-GCM ile güvenli metin aktarımı
 - [x] RSA-2048, DH-2048, ECDH P-256 ve ML-KEM-768
 - [x] Güvenli PDF aktarımı; şifreli parçalar ve alıcı kayıt onayı, 10 MiB sınırı
-- [ ] Manuel AES ve aynı girdide kütüphane karşılaştırması
+- [x] Manuel AES-128: anahtar genişletme, şifreleme/çözme turları, ara adım demosu
+- [x] Manuel AES ile Java AES'in aynı blokta doğruluk karşılaştırması
 - [x] Her yöntem için 10 gerçek bağlantı ölçümü, ortalamalar, boyut tablosu ve CSV altyapısı
 - [ ] İki fiziksel bilgisayarda karşılaştırma deneyi ve rapora alınacak sonuçlar
 - [x] Güvensiz modda sunucu ve istemci Wireshark kayıtları; metin/PDF/ACK doğrulaması
@@ -65,8 +66,11 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
 - Ece'nin bu haftaki tercihi: RSA-2048 ile ilk deney, AES-128-GCM ve Java
   kütüphanesi; mesaj/PDF, mod seçimi, testler ve açıklama dokümanı birlikte.
 - Ölçüm sınırları ve çalışma adımları `docs/SECURE_MODE.md` içinde.
-- Manuel AES henüz uygulanmadı. Ağda şu aşamada Java AES kütüphanesi kullanılır;
-  manuel AES ve aynı girdide kütüphane karşılaştırması ayrı sonraki çalışmadır.
+- Manuel AES-128 blok çekirdeği kriptografi API'si kullanmadan eklendi.
+  Anahtar genişletme ve tur işlemleri docs/MANUAL_AES.md içinde açıklanır.
+  Bilinen vektörler ve 1000 girdide Java AES ile doğruluk karşılaştırması yapılır.
+  Ağda Java AES-GCM kullanılır; manuel çekirdeğin GCM entegrasyonu ve performans
+  karşılaştırması bu çalışmanın kapsamına dahil değildir.
 Güvenli mod istemci–sunucu bağlantıları içindir: sunucu içeriği çözer ve hedef
 istemcinin anahtarıyla yeniden şifreler. Uçtan uca şifreleme olarak sunulmaz.
 

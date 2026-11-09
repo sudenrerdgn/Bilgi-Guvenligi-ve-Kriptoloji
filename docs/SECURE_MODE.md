@@ -1,8 +1,9 @@
 # Güvenli metin ve PDF aktarımı — Zeynep ve Ece için çalışma rehberi
 
 Bu aşamada sunucu mod düğmesi, dört anahtar paylaşım yöntemi, şifreli metin/PDF ve
-karşılaştırma ölçümleri vardır. PDF her iki modda çalışır. Elle yazılmış
-AES ve kütüphane karşılaştırması henüz yapılmadı; ağda Java JCA/JCE kullanılır.
+karşılaştırma ölçümleri vardır. PDF her iki modda çalışır. Ağda Java JCA/JCE
+kullanılır. Ayrı [manuel AES-128 çekirdeği](MANUAL_AES.md) ve blok doğruluk testleri
+de bulunur.
 
 ## 1. Başlatın
 
@@ -194,8 +195,8 @@ HKDF bağımsız RFC test vektörüyle doğrulanır.
 
 Ece'nin bu haftaki sunumu için [AES-128 ve RSA-2048 açıklaması](ECE_AES_RSA.md).
 
-Sonraki aşamalar: manuel AES çekirdeği ve aynı girdide kütüphane karşılaştırması;
-güvenli modda iki bilgisayarlı deney, Wireshark ve rapor.
+Sonraki aşamalar: güvenli modda iki bilgisayarlı deney, Wireshark ve rapor.
+Manuel çekirdekle Java AES arasında performans karşılaştırması henüz yapılmadı.
 
 ## Kaynaklar
 

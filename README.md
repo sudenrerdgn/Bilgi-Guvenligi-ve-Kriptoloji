@@ -10,6 +10,8 @@ indirme bulunur. PDF parçaları ve teslim onayları güvenli modda AES kanalı 
 
 **Başlangıç:** [Güvenli modu birlikte çalıştırma rehberi](docs/SECURE_MODE.md).
 **Ece'nin haftalık bölümü:** [AES-128 ve RSA-2048 sunum notları](docs/ECE_AES_RSA.md).
+**Manuel AES-128:** [Anahtar genişletme ve tur rehberi](docs/MANUAL_AES.md).
+Tur anahtarları ve ara durumları görmek için scripts/manual-aes.ps1 çalıştırın.
 Güvensiz `.pcapng` dosyalarının metin, PDF ve teslim onayları doğrulandı;
 [deney bulguları](captures/insecure/README.md) kaydedildi. Güvenli modun iki
 bilgisayarda Wireshark deneyi henüz yapılmadı.
@@ -25,6 +27,7 @@ bilgisayarda Wireshark deneyi henüz yapılmadı.
 
 - Windows, VS Code ve **JDK 25 veya üzeri** (`java` ve `javac` aynı güncel JDK'ya ait olmalı).
 - ML-KEM dahil Java'nın yerleşik kriptografi API'leri kullanılır; Maven, Gradle veya harici Java kütüphanesi gerekmez.
+- Ders için manuel AES-128 blok çekirdeği de bulunur; kriptografi API'si çağırmaz.
 - İki bilgisayarla deney için aynı yerel ağ ve sunucunun TCP 5000 portuna erişim.
 
 ## Derleme ve test

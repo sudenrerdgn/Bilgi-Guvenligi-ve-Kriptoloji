@@ -3,7 +3,8 @@
 Bu haftanın kapsamı Java kütüphanesiyle AES-128-GCM, RSA-2048 ile ilk anahtar
 paylaşımı, şifreli mesaj/PDF aktarımı ve testlerdir. Güncel projede DH, ECDH ve
 ML-KEM de mevcut; ilk gösterimde iki istemcide RSA seçilmesi yeterlidir.
-Manuel AES bu haftanın kapsamına dahil değildir.
+Bu rehber ilk AES/RSA haftasını anlatır. Sonraki çalışma olan
+[manuel AES-128, anahtar genişletme ve turlar](MANUAL_AES.md) ayrıca tamamlandı.
 
 ## Sunumda kısa anlatım
 

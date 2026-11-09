@@ -9,6 +9,8 @@ $mainSources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src/main/ja
 # Testleri uygulama kaynaklariyla birlikte derleyerek tek bir derleme birimi olustururuz.
 & javac --release 25 -encoding UTF-8 -d $testClasses @mainSources @sources
 if ($LASTEXITCODE -ne 0) { throw 'Test derlemesi basarisiz.' }
+& java -cp "$classes;$testClasses" tr.edu.crypto.ManualAes128Test
+if ($LASTEXITCODE -ne 0) { throw 'Manuel AES testleri basarisiz.' }
 & java -cp "$classes;$testClasses" tr.edu.crypto.IntegrationTest
 if ($LASTEXITCODE -ne 0) { throw 'Testler basarisiz.' }
 & java -cp "$classes;$testClasses" tr.edu.crypto.FileTransferTest
