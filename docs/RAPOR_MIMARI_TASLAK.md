@@ -137,6 +137,29 @@ Sunucu, bağlantıları ayrı iş parçacıklarıyla işler. Güvenli/güvensiz 
 
 ---
 
+### 3.4. Anahtar paylaşımı ölçüm sonuçları
+
+İki fiziksel bilgisayar arasında dört anahtar paylaşım yöntemi ölçülmüştür. Her yöntem için ikinci koşudaki 10 bağlantının aritmetik ortalaması aşağıdadır. Paylaşım süresi TCP bağlantı kurulumunu içermez; HELLO gönderiminden şifreli FINISHED_ACK doğrulamasına kadar anahtar işlemlerini, kimlik doğrulamayı, HKDF'yi ve ağ beklemesini kapsar. Uygulama trafiği sütunu TCP/IP başlıklarını içermez.
+
+| Deney ortamı | Sunucu (Bilgisayar A) | İstemci (Bilgisayar B) |
+|---|---|---|
+| İşlemci | AMD Ryzen 7 7840HS w/ Radeon 780M Graphics | 13th Gen Intel Core i7-13620H (2.40 GHz) |
+| RAM | 32 GB | 32 GB |
+| İşletim sistemi | Windows 25H2 | Windows 26H2 |
+| Java / `javac` | 25.0.1 / 25.0.1 | 25.0.1 / 25.0.1 |
+| Ağ / güç profili | Wi-Fi / En iyi performans | Wi-Fi / En iyi performans |
+
+Ölçümler 10 Kasım 2026 10:04–10:11 UTC arasında alınmıştır. CSV uç noktası sunucu adresini `10.16.13.228:5000` olarak kaydeder. Deneyden sonra yapılan 20 pingin tamamı yanıt vermiş, Windows ortalama süreyi 0 ms olarak göstermiştir; bu ping ölçümü deney anında alınmadığından gecikme değeri ölçüm tablosuna katılmamıştır. Uygulama CSV'leri ve koşu-1/koşu-2 verileri [arşiv klasöründedir](../captures/key-exchange/).
+
+| Yöntem | Tekrar | Sunucu anahtar üretimi (ms) | İstemci anahtar/ortak sır (ms) | Paylaşım (ms) | Anahtar yükü (bayt) | Toplam uygulama trafiği (bayt) |
+|---|---:|---:|---:|---:|---:|---:|
+| RSA-2048 | 10 | 105.6509 | 0.0363 | 167.2702 | 550.0 | 1043.5 |
+| DH-2048 | 10 | 0.6675 | 1.1710 | 116.8653 | 1113.3 | 1603.4 |
+| ECDH P-256 | 10 | 0.6263 | 0.7341 | 132.4717 | 182.0 | 674.1 |
+| ML-KEM-768 | 10 | 0.6195 | 1.7320 | 43.1477 | 2294.0 | 2788.1 |
+
+DH ve ECDH koşularında sırasıyla 507.4597 ms ve 1034.5002 ms paylaşım süreli yüksek örnekler gözlenmiştir. Ham verilerden çıkarılmadılar; ortalamalara dahildirler. Paylaşım süresi ağ beklemesini de içerdiğinden sonuçlar ölçüm koşullarına özgüdür. ML-KEM istemci ölçümü kapsüllemeyi, diğer yöntemler anahtar çifti üretimini kapsar; bu işlem süreleri aynı kriptografik işi ifade etmez.
+
 ## Teslim öncesi kontrol — rapora dahil edilmeyecek
 
 - [ ] Güvenli mod deneyindeki gerçek IP adreslerini ve uygulamaların hangi bilgisayarlarda çalıştığını doğrula. Değişmişse Şekil 1 ve adres tablosunu güncelle; güvensiz deneyin tarihini koru.

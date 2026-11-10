@@ -50,8 +50,8 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
 - [x] Manuel AES-128: anahtar genişletme, şifreleme/çözme turları, ara adım demosu
 - [x] Manuel AES ile Java AES'in aynı blokta doğruluk karşılaştırması
 - [x] Her yöntem için 10 gerçek bağlantı ölçümü, ortalamalar, boyut tablosu ve CSV altyapısı
-- [ ] İki fiziksel bilgisayarda karşılaştırma deneyi ve rapora alınacak sonuçlar
-  (adımlar ve rapor tablosu: `docs/TWO_COMPUTER_EXPERIMENT.md`; gerçek ölçümler bekleniyor)
+- [x] İki fiziksel bilgisayarda karşılaştırma deneyi ve rapor sonuç tablosu
+  (`captures/key-exchange/` altında iki koşunun CSV'leri; donanım/JDK/ağ bilgileri ayrıca kaydedilmeli)
 - [x] Güvensiz modda sunucu ve istemci Wireshark kayıtları; metin/PDF/ACK doğrulaması
 - [ ] Güvenli modda sunucu ve istemci Wireshark kayıtları
 - [ ] Rapor, README'nin son hali ve sunum

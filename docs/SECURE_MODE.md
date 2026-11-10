@@ -71,9 +71,7 @@ AES ağ üzerindeki aktarımı korur.
 
 ## 4. Süre ve boyutları karşılaştırın
 
-İki fiziksel bilgisayarda ölçümü, ortam kaydı ve rapora aktarılabilir boş sonuç
-tablosuyla birlikte yürütmek için [iki bilgisayarlı deney yönergesini](TWO_COMPUTER_EXPERIMENT.md)
-izleyin. Gerçek ölçümler alınana kadar rapor tablosuna değer yazmayın.
+İki koşunun ham CSV'leri ve doldurulmuş sonuç tablosu [deney sonuçları belgesinde](TWO_COMPUTER_EXPERIMENT.md) bulunur. Ölçüm adımları ve hesaplama sınırları da aynı belgede tutulur.
 
 Sunucuyu güvenli modda bırakın. Bir istemcide bağlantıyı kesin; sunucu adresini,
 parmak izini ve yöntemi seçip **Seçili yöntemle 10 ölçüm yap** düğmesine basın.
