@@ -1,7 +1,7 @@
 # Ece: manuel AES-128, anahtar genişletme ve turlar
 
 ManualAes128.java kriptografi API'si çağırmadan AES-128 blok şifreleme ve çözme
-yapar. Cipher yalnızca testte bağımsız karşılaştırma için kullanılır. List ve
+yapar. Cipher, testte ve demoda bağımsız karşılaştırma için kullanılır. List ve
 HexFormat gibi standart Java araçları listeleme ve hex gösterimi içindir.
 Şifreleme, anahtar genişletme ve sonlu alan çarpımları elle yazılmıştır.
 
@@ -11,8 +11,9 @@ Proje kökünde:
 
     .\scripts\manual-aes.ps1
 
-Betik kodu derler; K0–K10 anahtarlarını, 40 ara durumu, şifreli ve çözülmüş bloğu
-gösterir. PowerShell betiği engellerse:
+Betik kodu derler; K0–K10 anahtarlarını, 40 ara durumu ve manuel AES ile Java
+kütüphanesinin şifreleme/çözme sonuçlarını yan yana gösterir.
+PowerShell betiği engellerse:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\manual-aes.ps1
 
@@ -106,6 +107,38 @@ traceEncryption(block) şifrelemenin her adımını değişmez hex kayıtlarıyl
 
 ## 5. Doğrulama ve sınırlar
 
+### Terminalde kütüphane çıktısıyla karşılaştırma
+
+`scripts/manual-aes.ps1` çalıştırıldığında demo, aynı 16 bayt anahtar ve açık
+bloğu hem manuel AES'e hem Java `Cipher` (`AES/ECB/NoPadding`) uygulamasına
+verir. Çözme karşılaştırmasında ikisine de manuel şifrelemenin ürettiği aynı
+şifreli blok verilir. Sonuçlar bayt bayt karşılaştırılır; çözülen blokların
+başlangıç girdisine eşit olduğu ayrıca kontrol edilir. Uyuşmazlıkta program
+hata koduyla sonlanır.
+
+Varsayılan örnekte karşılaştırma bölümü:
+
+```text
+Islem        Manuel AES                       | Java kutuphanesi
+Sifreleme    69c4e0d86a7b0430d8cdb78070b4c55a | 69c4e0d86a7b0430d8cdb78070b4c55a
+Cozme        00112233445566778899aabbccddeeff | 00112233445566778899aabbccddeeff
+Sifreleme sonuclari: ESLESTI
+Cozme sonuclari: ESLESTI
+Orijinal blok geri elde edildi: EVET
+Dogrulama basarili.
+```
+
+Farklı bir anahtar/blokla karşılaştırmak için:
+
+```powershell
+.\scripts\manual-aes.ps1 -KeyHex '2b7e151628aed2a6abf7158809cf4f3c' -BlockHex '6bc1bee22e409f96e93d7e117393172a'
+```
+
+Bu örnekte her iki şifreleme çıktısı `3ad77bb40d7a3660a89ecaf32466ef97` olmalıdır.
+Ekran görüntüsü için anahtar ve açık blok ile sondaki karşılaştırma tablosunu kaydedin.
+
+### Otomatik kontroller ve kapsam
+
 scripts/test.ps1 şu kontrolleri de çalıştırır:
 
 - FIPS örneğinin sonucu, 11 tur anahtarı ve ilk turun ara değerleri.
@@ -143,7 +176,8 @@ Ece'nin demo çalıştırması ve otomatik test sonucundan alınan görüntüler
 
 Test görüntüsü, 1.000 farklı anahtar/blokta Java ile şifreleme ve çözme
 sonuçlarının aynı olduğunu ve 2.052 manuel AES kontrolünün başarıyla
-tamamlandığını gösterir. Diğer üç görüntü demo çıktısıdır.
+tamamlandığını gösterir. Diğer üç görüntü, kütüphane karşılaştırma tablosu
+eklenmeden önceki demo çıktısıdır.
 
 ## Sunumda kısa anlatım
 
