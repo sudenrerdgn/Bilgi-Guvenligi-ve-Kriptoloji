@@ -54,7 +54,8 @@ Kesin teslim günü kullanıcıdan henüz alınmadı; süre yaklaşık bir ay.
   (`captures/key-exchange/` altında iki koşunun CSV'leri; donanım/JDK/ağ bilgileri ayrıca kaydedilmeli)
 - [x] Güvensiz modda sunucu ve istemci Wireshark kayıtları; metin/PDF/ACK doğrulaması
 - [ ] Güvenli modda sunucu ve istemci Wireshark kayıtları
-- [ ] Rapor, README'nin son hali ve sunum
+- [x] Raporun Word taslağı: giriş, mimari, güvenli akış, dört yöntem, manuel AES ve mevcut ölçümler (`docs/RAPOR.docx`)
+- [ ] Raporun güvenli Wireshark analizi, kapak bilgileri ve son düzenlemesi; README'nin son hali ve sunum
 
 ## Güvenli aktarım aşamasında seçilen parametreler
 
